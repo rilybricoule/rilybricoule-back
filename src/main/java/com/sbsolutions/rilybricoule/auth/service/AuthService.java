@@ -140,7 +140,7 @@ public class AuthService {
     public void register(RegisterRequest request) {
 
         if (userRepository.findByUsername(request.username()).isPresent()) {
-            throw new RuntimeException("Username already exists");
+            throw new RuntimeException("Username already exist ");
         }
 
         if (userRepository.findByEmail(request.email()).isPresent()) {
