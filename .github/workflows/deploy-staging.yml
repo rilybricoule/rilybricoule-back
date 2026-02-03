@@ -23,6 +23,3 @@ jobs:
             cd ~/rilybricoule-staging
             docker compose pull backend
             docker compose up -d backend
-            cd ~/rilybricoule-staging
-            docker compose pull backend
-            docker compose up -d backend
