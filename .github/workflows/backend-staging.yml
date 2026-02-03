@@ -36,4 +36,4 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/rilybricoule-backend:staging
+            ${{ secrets.DOCKERHUB_USERNAME }}/rilybricoule-backend:latest
