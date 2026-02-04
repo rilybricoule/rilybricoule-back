@@ -1,4 +1,4 @@
-name: Deploy to VPS (Staging)
+name: Deploy Backend to VPS (Staging)
 
 on:
   workflow_run:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy backend on VPS
+      - name: Deploy backend container only
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.STAGING_HOST }}
@@ -20,6 +20,13 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           port: 22
           script: |
-            cd ~/rilybricoule-staging
+            set -e
+            cd ~/rilybricoule/staging
+
+            echo "Pull new backend image"
             docker compose pull backend
+
+            echo "Recreate backend container only"
             docker compose up -d backend
+
+            echo "Backend updated successfully"
