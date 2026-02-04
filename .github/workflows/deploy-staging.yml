@@ -20,6 +20,6 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           port: 22
           script: |
-            cd ~/rilybricoule-staging
+            cd ~/rilybricoule/staging
             docker compose pull backend
             docker compose up -d backend
