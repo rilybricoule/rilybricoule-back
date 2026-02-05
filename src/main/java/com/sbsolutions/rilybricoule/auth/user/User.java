@@ -1,32 +1,48 @@
-package com.sbsolutions.rilybricoule.auth.dto;
+package com.sbsolutions.rilybricoule.auth.user;
 
-import com.sbsolutions.rilybricoule.auth.user.Role;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
-public class RegisterRequest {
+@Entity
+@Table(name = "users")
+public class User {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false)
     @Email
     @NotBlank
     private String email;
 
+    @Column(nullable = false)
     @NotBlank
     private String password;
 
-    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private Role role;
 
     // Constructors
-    public RegisterRequest() {}
+    public User() {}
 
-    public RegisterRequest(String email, String password, Role role) {
+    public User(String email, String password, Role role) {
         this.email = email;
         this.password = password;
         this.role = role;
     }
 
     // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getEmail() {
         return email;
     }
