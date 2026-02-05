@@ -2,6 +2,7 @@ package com.sbsolutions.rilybricoule.auth.user;
 
 import com.sbsolutions.rilybricoule.auth.dto.RegisterRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     @Autowired
+    @Qualifier("authUserRepository")
     private UserRepository userRepository;
 
     @Autowired

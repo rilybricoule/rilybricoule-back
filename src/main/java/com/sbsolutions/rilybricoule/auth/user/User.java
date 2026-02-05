@@ -1,11 +1,12 @@
 package com.sbsolutions.rilybricoule.auth.user;
+ // example
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
-@Entity
-@Table(name = "users")
+@Entity(name = "AuthUser")
+@Table(name = "auth_users")
 public class User {
 
     @Id
