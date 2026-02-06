@@ -1,44 +1,40 @@
 package com.sbsolutions.rilybricoule.security;
 
-import com.sbsolutions.rilybricoule.user.entity.User;
-import com.sbsolutions.rilybricoule.user.repository.UserRepository;
-import org.springframework.security.core.GrantedAuthority;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.Set;
+import com.sbsolutions.rilybricoule.auth.user.User;
+import com.sbsolutions.rilybricoule.auth.user.UserRepository;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private final UserRepository userRepository;
-
-    public CustomUserDetailsService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+    @Autowired
+    @Qualifier("authUserRepository")
+    private UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("User not found with email: " + email)
+                );
 
-        Set<GrantedAuthority> authorities = new HashSet<>();
-
-        user.getRoles().forEach(role -> {
-            authorities.add(new SimpleGrantedAuthority(role.getName()));
-            role.getPermissions().forEach(p ->
-                    authorities.add(new SimpleGrantedAuthority(p.getName()))
-            );
-        });
+        // 🔥 Convert role to Spring format with "ROLE_" prefix
+        SimpleGrantedAuthority authority =
+                new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
 
         return new org.springframework.security.core.userdetails.User(
-                user.getUsername(),
+                user.getEmail(),
                 user.getPassword(),
-                authorities
+                List.of(authority)
         );
     }
 }

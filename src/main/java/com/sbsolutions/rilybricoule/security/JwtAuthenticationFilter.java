@@ -10,8 +10,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -56,11 +54,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             List<GrantedAuthority> authorities = new ArrayList<>();
 
-            List<String> roles = claims.get("roles", List.class);
+            @SuppressWarnings("unchecked")
+            List<String> roles = (List<String>) claims.get("roles");
             if (roles != null)
                 roles.forEach(r -> authorities.add(new SimpleGrantedAuthority(r)));
 
-            List<String> permissions = claims.get("permissions", List.class);
+            @SuppressWarnings("unchecked")
+            List<String> permissions = (List<String>) claims.get("permissions");
             if (permissions != null)
                 permissions.forEach(p -> authorities.add(new SimpleGrantedAuthority(p)));
 
@@ -73,7 +73,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(auth);
 
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            // Log or handle JWT validation errors
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         filterChain.doFilter(request, response);
     }
