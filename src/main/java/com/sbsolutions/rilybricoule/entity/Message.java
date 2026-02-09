@@ -1,8 +1,5 @@
-package com.sbsolutions.rilybricoule.entity.message_chat;
+package com.sbsolutions.rilybricoule.entity;
 
-import com.sbsolutions.rilybricoule.entity.Client;
-
-import com.sbsolutions.rilybricoule.entity.messageType.MessageType;
 import jakarta.persistence.*;
 import lombok.*;
 

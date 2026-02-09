@@ -1,4 +1,4 @@
-package com.sbsolutions.rilybricoule.entity.notificationType;
+package com.sbsolutions.rilybricoule.entity;
 
 public enum NotificationType {
     RESERVATION,

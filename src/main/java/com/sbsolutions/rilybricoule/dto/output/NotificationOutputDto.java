@@ -1,6 +1,6 @@
 package com.sbsolutions.rilybricoule.dto.output;
 
-import com.sbsolutions.rilybricoule.entity.notificationType.NotificationType;
+import com.sbsolutions.rilybricoule.entity.NotificationType;
 import lombok.*;
 import java.time.LocalDateTime;
 
