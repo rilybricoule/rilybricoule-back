@@ -1,18 +1,19 @@
 package com.sbsolutions.rilybricoule.dto.output;
 
-
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import com.sbsolutions.rilybricoule.entity.notificationType.NotificationType;
+import lombok.*;
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class NotificationOutputDto {
-    private String contenu;
-    private LocalDateTime date;
+
+    private String contenu;          // texte de la notification
+    private LocalDateTime date;      // date de création
+    private NotificationType type;
+
 
 }

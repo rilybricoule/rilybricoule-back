@@ -1,11 +1,13 @@
 package com.sbsolutions.rilybricoule.entity.message_chat;
 
+import com.sbsolutions.rilybricoule.entity.Client;
+import com.sbsolutions.rilybricoule.entity.Prestataire;
 
-
-
+import com.sbsolutions.rilybricoule.entity.Reservation;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,15 +24,29 @@ public class Chat {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Réservation associée au chat
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reservation_id", nullable = true)
+    private Reservation reservation;
+
     // Client
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
-    private User client;
+    private Client client;
 
     // Prestataire
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "prestataire_id", nullable = false)
-    private User prestataire;
+    private Prestataire prestataire;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column
+    private LocalDateTime lastMessageAt;
+
+    @Column(nullable = false)
+    private boolean active = true;
 
     // Messages du chat
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)

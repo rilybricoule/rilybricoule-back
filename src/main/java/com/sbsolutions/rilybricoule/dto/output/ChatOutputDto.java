@@ -1,18 +1,22 @@
 package com.sbsolutions.rilybricoule.dto.output;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
+import java.time.LocalDateTime;
 import java.util.List;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ChatOutputDto {
-    private Long id;
-    private UserDto client;
-    private UserDto prestataire;
-    private List<MessageOutputDto> messages; // messages inside the chat
+
+    private String clientName;
+    private String prestataireName;
+    private LocalDateTime createdAt;     // date de création du chat
+    private LocalDateTime lastMessageAt; // date du dernier message
+    private boolean active;              // chat actif ou non
+    private List<MessageOutputDto> messages; // liste des messages
 }
+
 

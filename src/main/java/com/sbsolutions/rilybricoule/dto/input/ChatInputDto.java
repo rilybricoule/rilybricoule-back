@@ -10,4 +10,6 @@ import lombok.NoArgsConstructor;
 public class ChatInputDto {
     private Long clientId;
     private Long prestataireId;
+    private Long reservationId;
+
 }

@@ -1,6 +1,7 @@
 package com.sbsolutions.rilybricoule.entity.notification;
 
 
+import com.sbsolutions.rilybricoule.entity.Prestataire;
 import com.sbsolutions.rilybricoule.entity.notificationType.NotificationType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,8 +26,6 @@ public class Notification {
     @Column(nullable = false)
     private LocalDateTime date;
 
-    @Column(nullable = false)
-    private boolean vu = false;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -1,17 +1,18 @@
 package com.sbsolutions.rilybricoule.dto.output;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class MessageOutputDto {
-    private Long id;
-    private String contenu;
-    private LocalDateTime date;
-    private UserDto auteur; // minimal info of the author
+
+    private String senderName;    // nom de l'auteur
+    private String content;       // texte du message
+    private String imageUrl;      // URL de l'image (optionnel)
+    private LocalDateTime sentAt; // date d'envoi
+    private boolean read;         // lu ou non
 }
