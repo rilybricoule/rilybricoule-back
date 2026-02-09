@@ -1,4 +1,4 @@
-package com.sbsolutions.rilybricoule.entity.messageType;
+package com.sbsolutions.rilybricoule.entity;
 
 public enum MessageType {
     TEXT,

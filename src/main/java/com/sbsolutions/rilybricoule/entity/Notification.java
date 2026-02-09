@@ -1,8 +1,6 @@
-package com.sbsolutions.rilybricoule.entity.notification;
+package com.sbsolutions.rilybricoule.entity;
 
 
-import com.sbsolutions.rilybricoule.entity.Prestataire;
-import com.sbsolutions.rilybricoule.entity.notificationType.NotificationType;
 import jakarta.persistence.*;
 import lombok.*;
 
