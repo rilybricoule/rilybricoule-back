@@ -22,6 +22,7 @@
     <properties>
         <java.version>17</java.version>
         <lombok.version>1.18.30</lombok.version>
+        <swagger.version>2.2.41</swagger.version>
     </properties>
 
     <dependencies>
@@ -51,7 +52,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Spring Security (still present) -->
+        <!-- Spring Security -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
@@ -65,6 +66,20 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Swagger Annotations -->
+        <!-- Source: https://mvnrepository.com/artifact/org.springdoc/springdoc-openapi-starter-webmvc-ui -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.5.0</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

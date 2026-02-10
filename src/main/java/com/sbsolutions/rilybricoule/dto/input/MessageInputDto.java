@@ -1,5 +1,6 @@
 package com.sbsolutions.rilybricoule.dto.input;
 
+import com.sbsolutions.rilybricoule.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,6 +8,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MessageInputDto {
-    private String contenu;
-    private Long chatId;  // ID du chat
+    private String Contenu;
+    private Long chatId;
+
+    private User sender;
+
 }

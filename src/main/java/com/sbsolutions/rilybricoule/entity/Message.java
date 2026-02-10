@@ -26,7 +26,7 @@ public class Message {
     // Auteur du message
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sender_id", nullable = false)
-    private Client sender;
+    private User sender;
 
     @Column(nullable = false, length = 1000)
     private String content;
@@ -43,4 +43,14 @@ public class Message {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MessageType messageType;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+    }
+
+
 }
