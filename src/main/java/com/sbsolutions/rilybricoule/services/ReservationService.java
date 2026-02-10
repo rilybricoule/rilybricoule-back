@@ -120,7 +120,7 @@ public class ReservationService {
      * Get all reservations for a prestataire.
      */
     public List<ReservationResponse> getPrestaireReservations(Long prestaireId) {
-        List<Reservation> reservations = reservationRepository.findByPrestaireId(prestaireId);
+        List<Reservation> reservations = reservationRepository.findByPrestataireId(prestaireId);
         return reservations.stream()
             .map(ReservationResponse::fromEntity)
             .collect(Collectors.toList());

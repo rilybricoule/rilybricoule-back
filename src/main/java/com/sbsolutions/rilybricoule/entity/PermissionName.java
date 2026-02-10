@@ -1,0 +1,19 @@
+package com.sbsolutions.rilybricoule.entity;
+
+public enum PermissionName {
+    CREATE_SERVICE,
+    READ_SERVICE,
+    UPDATE_SERVICE,
+    DELETE_SERVICE,
+
+    MANAGE_USERS,
+
+    CREATE_RESERVATION,
+    READ_RESERVATION,
+    UPDATE_RESERVATION,
+    CANCEL_RESERVATION,
+
+    MANAGE_OWN_SERVICES,
+    ACCEPT_RESERVATION,
+    REFUSE_RESERVATION
+}

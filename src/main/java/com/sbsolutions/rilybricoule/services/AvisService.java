@@ -72,7 +72,7 @@ public class AvisService {
      * Get all reviews for a prestataire.
      */
     public List<Avis> findByPrestaireId(Long prestaireId) {
-        return avisRepository.findByPrestaireIdOrderByCreatedDateDesc(prestaireId);
+        return avisRepository.findByPrestataireIdOrderByCreatedDateDesc(prestaireId);
     }
     
     /**
