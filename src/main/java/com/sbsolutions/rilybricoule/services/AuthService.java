@@ -29,7 +29,6 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final RefreshTokenService refreshTokenService;
     private final UserDetailsService userDetailsService;
 
     @Transactional
@@ -71,9 +70,8 @@ public class AuthService {
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String accessToken = jwtService.generateToken(userDetails);
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
 
-        return buildJwtResponse(user, accessToken, refreshToken.getToken());
+        return buildJwtResponse(user, accessToken);
     }
 
     public JwtResponse login(LoginRequest request) {
@@ -87,40 +85,16 @@ public class AuthService {
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String accessToken = jwtService.generateToken(userDetails);
 
-        refreshTokenService.deleteByUser(user);
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
-
-        return buildJwtResponse(user, accessToken, refreshToken.getToken());
+        return buildJwtResponse(user, accessToken);
     }
 
-    public JwtResponse refreshToken(String token) {
-        RefreshToken refreshToken = refreshTokenService.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
-
-        refreshTokenService.verifyExpiration(refreshToken);
-
-        User user = refreshToken.getUser();
-        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String accessToken = jwtService.generateToken(userDetails);
-
-        return buildJwtResponse(user, accessToken, refreshToken.getToken());
-    }
-
-    @Transactional
-    public void logout(String refreshToken) {
-        RefreshToken token = refreshTokenService.findByToken(refreshToken)
-                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
-        refreshTokenService.deleteByUser(token.getUser());
-    }
-
-    private JwtResponse buildJwtResponse(User user, String accessToken, String refreshToken) {
+    private JwtResponse buildJwtResponse(User user, String accessToken) {
         List<String> roles = user.getRoles().stream()
                 .map(role -> role.getRoleName().name())
                 .collect(Collectors.toList());
 
         return JwtResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(refreshToken)
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())

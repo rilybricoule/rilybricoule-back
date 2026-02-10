@@ -10,7 +10,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -24,15 +23,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         var authorities = user.getRoles().stream()
-                .flatMap(role -> {
-                    var roleAuthority = new SimpleGrantedAuthority(role.getRoleName().name());
-                    var permissionAuthorities = role.getPermissions().stream()
-                            .map(permission -> new SimpleGrantedAuthority(permission.getPermissionName().name()));
-                    return Stream.concat(
-                            Stream.of(roleAuthority),
-                            permissionAuthorities
-                    );
-                })
+                .map(role -> new SimpleGrantedAuthority(role.getRoleName().name()))
                 .collect(Collectors.toSet());
 
         return new org.springframework.security.core.userdetails.User(

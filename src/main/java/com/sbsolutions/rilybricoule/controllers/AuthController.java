@@ -2,7 +2,6 @@ package com.sbsolutions.rilybricoule.controllers;
 
 import com.sbsolutions.rilybricoule.dto.JwtResponse;
 import com.sbsolutions.rilybricoule.dto.LoginRequest;
-import com.sbsolutions.rilybricoule.dto.RefreshTokenRequest;
 import com.sbsolutions.rilybricoule.dto.RegisterRequest;
 import com.sbsolutions.rilybricoule.services.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -24,16 +23,5 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<JwtResponse> login(@RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
-    }
-
-    @PostMapping("/refresh")
-    public ResponseEntity<JwtResponse> refreshToken(@RequestBody RefreshTokenRequest request) {
-        return ResponseEntity.ok(authService.refreshToken(request.getRefreshToken()));
-    }
-
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestBody RefreshTokenRequest request) {
-        authService.logout(request.getRefreshToken());
-        return ResponseEntity.ok().build();
     }
 }

@@ -4,9 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,8 +19,4 @@ public class Client extends User {
     private Double latitude;
 
     private Double longitude;
-
-    @Builder.Default
-    @OneToMany(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
-    private Set<Reservation> reservations = new HashSet<>();
 }

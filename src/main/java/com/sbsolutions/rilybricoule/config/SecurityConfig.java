@@ -4,6 +4,7 @@ import com.sbsolutions.rilybricoule.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -33,8 +34,19 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
+                        // Client endpoints - ADMIN can manage all, CLIENT can read
+                        .requestMatchers(HttpMethod.GET, "/api/clients/**").hasAnyRole("CLIENT", "ADMIN")
+                        .requestMatchers("/api/clients/**").hasRole("ADMIN")
+
+                        // Prestataire endpoints - ADMIN can manage all, PRESTATAIRE can read
+                        .requestMatchers(HttpMethod.GET, "/api/prestataires/**").hasAnyRole("PRESTATAIRE", "ADMIN")
+                        .requestMatchers("/api/prestataires/**").hasRole("ADMIN")
+
+                        // Everything else requires authentication
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
