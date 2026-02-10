@@ -71,15 +71,15 @@ public class AvisService {
     /**
      * Get all reviews for a prestataire.
      */
-    public List<Avis> findByPrestaireId(Long prestaireId) {
-        return avisRepository.findByPrestaireIdOrderByCreatedDateDesc(prestaireId);
+    public List<Avis> findByPrestataireId(Long prestataireId) {
+        return avisRepository.findByPrestataireIdOrderByCreatedDateDesc(prestataireId);
     }
     
     /**
      * Get average rating for a prestataire.
      */
     public Double getAverageRating(Long prestaireId) {
-        List<Avis> avis = findByPrestaireId(prestaireId);
+        List<Avis> avis = findByPrestataireId(prestaireId);
         if (avis.isEmpty()) {
             return null;
         }

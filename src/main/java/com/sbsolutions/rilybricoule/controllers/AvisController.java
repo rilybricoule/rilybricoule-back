@@ -55,7 +55,7 @@ public class AvisController {
      */
     @GetMapping("/prestataire/{prestaireId}")
     public ResponseEntity<List<AvisDTO>> getAvisByPrestataire(@PathVariable Long prestaireId) {
-        List<Avis> avisList = avisService.findByPrestaireId(prestaireId);
+        List<Avis> avisList = avisService.findByPrestataireId(prestaireId);
         List<AvisDTO> response = avisList.stream()
             .map(avisService::toDTO)
             .collect(Collectors.toList());

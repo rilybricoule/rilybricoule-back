@@ -2,6 +2,8 @@ package com.sbsolutions.rilybricoule.controllers;
 
 import com.sbsolutions.rilybricoule.dto.CreateReservationRequest;
 import com.sbsolutions.rilybricoule.dto.ReservationResponse;
+import com.sbsolutions.rilybricoule.dto.ReservationPaymentRequest;
+import com.sbsolutions.rilybricoule.exceptions.PaymentFailedException;
 import com.sbsolutions.rilybricoule.services.ReservationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,30 @@ public class ReservationController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body("Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Create reservation and process payment.
+     * Accepts combined reservation + payment payload.
+     */
+    @PostMapping("/with-payment")
+    public ResponseEntity<?> createReservationWithPayment(@RequestBody ReservationPaymentRequest request) {
+        try {
+            if (request == null || request.getReservation() == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Reservation data is required");
+            }
+
+            ReservationResponse response = reservationService.createReservationWithPayment(
+                request.getReservation(), request.getPayment());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error: " + e.getMessage());
+        } catch (PaymentFailedException e) {
+            return ResponseEntity.status(402).body("Payment Required: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error: " + e.getMessage());
         }
     }
     
