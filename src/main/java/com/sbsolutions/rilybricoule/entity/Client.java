@@ -35,7 +35,11 @@ public class Client {
     
     @Column(length = 500)
     private String address;
-    
+
+    @ManyToOne
+    private Client client;
+
+
     @OneToMany(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @Builder.Default
     private Set<Reservation> reservations = new HashSet<>();
