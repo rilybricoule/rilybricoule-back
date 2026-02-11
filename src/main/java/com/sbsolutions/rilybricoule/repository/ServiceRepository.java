@@ -9,7 +9,7 @@ import java.util.Optional;
 
 @Repository
 public interface ServiceRepository extends JpaRepository<Service, Long> {
-    Optional<Service> findByNameAndPrestaireId(String name, Long prestaireId);
-    List<Service> findByPrestaireId(Long prestaireId);
+    Optional<Service> findByNameAndPrestataire_Id(String name, Long prestaireId);
+    List<Service> findByPrestataire_Id(Long prestaireId);
     List<Service> findByCategory(String category);
 }
