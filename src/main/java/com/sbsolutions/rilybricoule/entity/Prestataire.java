@@ -36,6 +36,12 @@ public class Prestataire extends User{
     
     @Column(length = 500)
     private String address;
+
+    @Column
+    private Double latitude;
+
+    @Column
+    private Double longitude;
     
     @OneToMany(mappedBy = "prestataire", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @Builder.Default

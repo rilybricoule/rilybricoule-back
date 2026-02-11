@@ -3,6 +3,7 @@ package com.sbsolutions.rilybricoule.controllers;
 import com.sbsolutions.rilybricoule.dto.PrestaireDTO;
 import com.sbsolutions.rilybricoule.entity.Prestataire;
 import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
+import com.sbsolutions.rilybricoule.services.GeocodingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +17,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/prestataires")
 @RequiredArgsConstructor
 public class PrestaireController {
-    
+
+    private final GeocodingService geocodingService;
     private final PrestaireRepository prestaireRepository;
     
     @PostMapping
@@ -28,7 +30,7 @@ public class PrestaireController {
             .email(request.getEmail())
             .address(request.getAddress())
             .build();
-        
+        setLatLngIfPossible(prestataire);
         Prestataire saved = prestaireRepository.save(prestataire);
         return ResponseEntity.status(HttpStatus.CREATED).body(toDTO(saved));
     }
@@ -64,7 +66,7 @@ public class PrestaireController {
         prestataire.setPhone(request.getPhone());
         prestataire.setEmail(request.getEmail());
         prestataire.setAddress(request.getAddress());
-        
+        setLatLngIfPossible(prestataire);
         Prestataire updated = prestaireRepository.save(prestataire);
         return ResponseEntity.ok(toDTO(updated));
     }
@@ -77,7 +79,17 @@ public class PrestaireController {
         prestaireRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
-    
+
+    private void setLatLngIfPossible(Prestataire prestataire) {
+        if (prestataire.getAddress() != null && !prestataire.getAddress().isBlank()) {
+            Double[] coords = geocodingService.getCoordinates(prestataire.getAddress());
+            if (coords != null) {
+                prestataire.setLatitude(coords[0]);
+                prestataire.setLongitude(coords[1]);
+            }
+        }
+    }
+
     private PrestaireDTO toDTO(Prestataire prestataire) {
         return PrestaireDTO.builder()
             .id(prestataire.getId())
@@ -86,6 +98,8 @@ public class PrestaireController {
             .phone(prestataire.getPhone())
             .email(prestataire.getEmail())
             .address(prestataire.getAddress())
+            .latitude(prestataire.getLatitude())
+            .longitude(prestataire.getLongitude())
             .build();
     }
 }
