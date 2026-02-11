@@ -10,6 +10,6 @@ import java.util.Optional;
 @Repository
 public interface AvisRepository extends JpaRepository<Avis, Long> {
     Optional<Avis> findByReservationId(Long reservationId);
-    List<Avis> findByPrestaireId(Long prestaireId);
-    List<Avis> findByPrestaireIdOrderByCreatedDateDesc(Long prestaireId);
+    List<Avis> findByPrestataireId(Long prestataireId);
+    List<Avis> findByPrestataireIdOrderByCreatedDateDesc(Long prestataireId);
 }
