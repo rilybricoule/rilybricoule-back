@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -66,7 +68,7 @@ public class ReservationService {
             .prestataire(prestataire)
             .totalPrice(BigDecimal.ZERO)
             .discountAmount(BigDecimal.ZERO)
-            //.status(Reservation.ReservationStatus.PENDING)
+            .status(Reservation.ReservationStatus.PENDING_PAYMENT)
             .build();
         
         // Apply coupon if provided
@@ -128,7 +130,7 @@ public class ReservationService {
             .prestataire(prestataire)
             .totalPrice(java.math.BigDecimal.ZERO)
             .discountAmount(java.math.BigDecimal.ZERO)
-            //.status(Reservation.ReservationStatus.PENDING)
+            .status(Reservation.ReservationStatus.PENDING_PAYMENT)
             .build();
 
         // Apply coupon if provided
@@ -194,8 +196,8 @@ public class ReservationService {
     /**
      * Get all reservations for a prestataire.
      */
-   /* public List<ReservationResponse> getPrestaireReservations(Long prestaireId) {
-        List<Reservation> reservations = reservationRepository.findByPrestataireId(prestaireId);
+    public List<ReservationResponse> getPrestaireReservations(Long prestaireId) {
+        List<Reservation> reservations = reservationRepository.findByPrestaireId(prestaireId);
         return reservations.stream()
             .map(ReservationResponse::fromEntity)
             .collect(Collectors.toList());
