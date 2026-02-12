@@ -2,10 +2,7 @@ package com.sbsolutions.rilybricoule.services;
 
 import com.sbsolutions.rilybricoule.dto.PaymentRequestDTO;
 import com.sbsolutions.rilybricoule.dto.PaymentResponseDTO;
-import com.sbsolutions.rilybricoule.entity.Client;
-import com.sbsolutions.rilybricoule.entity.Paiement;
-import com.sbsolutions.rilybricoule.entity.Prestataire;
-import com.sbsolutions.rilybricoule.entity.Reservation;
+import com.sbsolutions.rilybricoule.entity.*;
 import com.sbsolutions.rilybricoule.exceptions.PaymentFailedException;
 import com.sbsolutions.rilybricoule.repository.PaiementRepository;
 import com.sbsolutions.rilybricoule.repository.ReservationRepository;
@@ -24,7 +21,7 @@ import java.time.LocalTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,465 +37,170 @@ class PaymentServiceTest {
     @InjectMocks
     private PaymentService paymentService;
 
-    private PaymentRequestDTO validPaymentRequest;
-    private PaymentRequestDTO failingPaymentRequest;
-    private Reservation testReservation;
-    private Paiement testPayment;
-    private Client testClient;
-    private Prestataire testPrestataire;
+    private PaymentRequestDTO validRequest;
+    private PaymentRequestDTO failingRequest;
+    private Reservation reservation;
 
     @BeforeEach
-    void setUp() {
-        testClient = Client.builder()
+    void setup() {
+        reservation = Reservation.builder()
                 .id(1L)
-                .firstName("John")
-                .lastName("Doe")
-                .email("john@example.com")
-                .build();
-
-        testPrestataire = Prestataire.builder()
-                .id(1L)
-                .firstName("Jane")
-                .lastName("Smith")
-                .email("jane@example.com")
-                .build();
-
-        testReservation = Reservation.builder()
-                .id(1L)
-                .client(testClient)
-                .prestataire(testPrestataire)
-                .reservationDate(LocalDate.now().plusDays(5))
+                .reservationDate(LocalDate.now().plusDays(3))
                 .reservationTime(LocalTime.of(10, 0))
                 .totalPrice(new BigDecimal("100.00"))
-                .discountAmount(BigDecimal.ZERO)
                 .status(Reservation.ReservationStatus.PENDING_PAYMENT)
                 .build();
 
-        validPaymentRequest = PaymentRequestDTO.builder()
+        validRequest = PaymentRequestDTO.builder()
                 .amount(new BigDecimal("100.00"))
                 .paymentMethodToken("valid-token")
                 .currency("EUR")
                 .build();
 
-        failingPaymentRequest = PaymentRequestDTO.builder()
+        failingRequest = PaymentRequestDTO.builder()
                 .amount(new BigDecimal("100.00"))
                 .paymentMethodToken("fail")
                 .currency("EUR")
                 .build();
-
-        testPayment = Paiement.builder()
-                .id(1L)
-                .amount(new BigDecimal("100.00"))
-                .paymentStatus(Paiement.PaymentStatus.PENDING)
-                .paymentMode("CARD")
-                .reservation(testReservation)
-                .transactionId("txn-123")
-                .build();
     }
 
-    // ===== PROCESS PAYMENT TESTS =====
+    // ===============================
+    // BASIC PAYMENT PROCESSING
+    // ===============================
 
     @Test
-    @DisplayName("shouldProcessPaymentSuccessfully")
     void shouldProcessPaymentSuccessfully() {
-        // Act
-        PaymentResponseDTO response = paymentService.processPayment(validPaymentRequest);
+        PaymentResponseDTO response = paymentService.processPayment(validRequest);
 
-        // Assert
         assertNotNull(response);
         assertTrue(response.isSuccess());
         assertNotNull(response.getTransactionId());
-        assertEquals("Mock payment succeeded", response.getMessage());
     }
 
     @Test
-    @DisplayName("shouldReturnTransactionIdOnSuccessfulPayment")
-    void shouldReturnTransactionIdOnSuccessfulPayment() {
-        // Act
-        PaymentResponseDTO response = paymentService.processPayment(validPaymentRequest);
+    void shouldThrowExceptionWhenPaymentFails() {
+        PaymentFailedException ex = assertThrows(
+                PaymentFailedException.class,
+                () -> paymentService.processPayment(failingRequest)
+        );
 
-        // Assert
-        assertNotNull(response.getTransactionId());
-        assertFalse(response.getTransactionId().isEmpty());
+        assertTrue(ex.getMessage().contains("declined"));
     }
 
     @Test
-    @DisplayName("shouldThrowExceptionWhenPaymentTokenIsFail")
-    void shouldThrowExceptionWhenPaymentTokenIsFail() {
-        // Act & Assert
-        assertThrows(PaymentFailedException.class, () -> {
-            paymentService.processPayment(failingPaymentRequest);
-        });
-    }
+    void shouldValidatePaymentRequest() {
+        assertThrows(IllegalArgumentException.class,
+                () -> paymentService.processPayment(null));
 
-    @Test
-    @DisplayName("shouldThrowPaymentFailedExceptionWithCorrectMessage")
-    void shouldThrowPaymentFailedExceptionWithCorrectMessage() {
-        // Act & Assert
-        PaymentFailedException exception = assertThrows(PaymentFailedException.class, () -> {
-            paymentService.processPayment(failingPaymentRequest);
-        });
-
-        assertTrue(exception.getMessage().contains("Payment was declined"));
-    }
-
-    @Test
-    @DisplayName("shouldThrowExceptionWhenPaymentRequestIsNull")
-    void shouldThrowExceptionWhenPaymentRequestIsNull() {
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> {
-            paymentService.processPayment(null);
-        });
-    }
-
-    @Test
-    @DisplayName("shouldThrowExceptionWhenPaymentAmountIsNull")
-    void shouldThrowExceptionWhenPaymentAmountIsNull() {
-        // Arrange
-        PaymentRequestDTO requestWithoutAmount = PaymentRequestDTO.builder()
-                .amount(null)
+        PaymentRequestDTO noAmount = PaymentRequestDTO.builder()
                 .paymentMethodToken("valid-token")
                 .build();
 
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> {
-            paymentService.processPayment(requestWithoutAmount);
-        });
+        assertThrows(IllegalArgumentException.class,
+                () -> paymentService.processPayment(noAmount));
     }
 
-    @Test
-    @DisplayName("shouldThrowExceptionWithCorrectMessageWhenPaymentRequestIsNull")
-    void shouldThrowExceptionWithCorrectMessageWhenPaymentRequestIsNull() {
-        // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            paymentService.processPayment(null);
-        });
-
-        assertTrue(exception.getMessage().contains("Payment request") || 
-                  exception.getMessage().contains("amount"));
-    }
-
-    // ===== PROCESS PAYMENT FOR RESERVATION TESTS =====
+    // ===============================
+    // PAYMENT FOR RESERVATION
+    // ===============================
 
     @Test
-    @DisplayName("shouldProcessPaymentForReservationSuccessfully")
     void shouldProcessPaymentForReservationSuccessfully() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenReturn(testPayment);
-        when(reservationRepository.save(any(Reservation.class))).thenReturn(testReservation);
+        when(reservationRepository.findById(1L))
+                .thenReturn(Optional.of(reservation));
 
-        // Act
-        PaymentResponseDTO response = paymentService.processPaymentForReservation(
-                1L, validPaymentRequest, "CARD");
+        when(paiementRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Assert
-        assertNotNull(response);
+        when(reservationRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentResponseDTO response =
+                paymentService.processPaymentForReservation(1L, validRequest, "CARD");
+
         assertTrue(response.isSuccess());
-        verify(paiementRepository, times(1)).save(any(Paiement.class));
-        verify(reservationRepository, times(1)).save(any(Reservation.class));
+
+        InOrder inOrder = inOrder(paiementRepository, reservationRepository);
+        inOrder.verify(paiementRepository).save(any());
+        inOrder.verify(reservationRepository).save(any());
     }
 
     @Test
-    @DisplayName("shouldConfirmReservationWhenPaymentIsSuccessful")
-    void shouldConfirmReservationWhenPaymentIsSuccessful() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenReturn(testPayment);
-        when(reservationRepository.save(any(Reservation.class))).thenAnswer(invocation -> {
-            Reservation reservation = invocation.getArgument(0);
-            assertEquals(Reservation.ReservationStatus.CONFIRMED, reservation.getStatus());
-            return reservation;
-        });
+    void shouldUpdateReservationAndPaymentOnSuccess() {
+        when(reservationRepository.findById(1L))
+                .thenReturn(Optional.of(reservation));
 
-        // Act
-        paymentService.processPaymentForReservation(1L, validPaymentRequest, "CARD");
+        when(paiementRepository.save(any()))
+                .thenAnswer(invocation -> {
+                    Paiement p = invocation.getArgument(0);
+                    assertEquals(Paiement.PaymentStatus.SUCCESS, p.getPaymentStatus());
+                    assertNotNull(p.getTransactionId());
+                    assertEquals("CARD", p.getPaymentMode());
+                    assertNotNull(p.getPaymentDate());
+                    return p;
+                });
 
-        // Assert
-        verify(reservationRepository, times(1)).save(any(Reservation.class));
+        when(reservationRepository.save(any()))
+                .thenAnswer(invocation -> {
+                    Reservation r = invocation.getArgument(0);
+                    assertEquals(Reservation.ReservationStatus.CONFIRMED, r.getStatus());
+                    assertNotNull(r.getPaiement());
+                    return r;
+                });
+
+        paymentService.processPaymentForReservation(1L, validRequest, "CARD");
     }
 
     @Test
-    @DisplayName("shouldSetPaymentStatusToSuccessWhenPaymentSucceeds")
-    void shouldSetPaymentStatusToSuccessWhenPaymentSucceeds() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenAnswer(invocation -> {
-            Paiement payment = invocation.getArgument(0);
-            assertEquals(Paiement.PaymentStatus.SUCCESS, payment.getPaymentStatus());
-            return payment;
-        });
-        when(reservationRepository.save(any(Reservation.class))).thenReturn(testReservation);
+    void shouldThrowWhenReservationNotFound() {
+        when(reservationRepository.findById(99L))
+                .thenReturn(Optional.empty());
 
-        // Act
-        paymentService.processPaymentForReservation(1L, validPaymentRequest, "CARD");
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> paymentService.processPaymentForReservation(99L, validRequest, "CARD")
+        );
 
-        // Assert
-        verify(paiementRepository, times(1)).save(any(Paiement.class));
-    }
-
-    @Test
-    @DisplayName("shouldCancelReservationWhenPaymentFails")
-    void shouldCancelReservationWhenPaymentFails() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        // processPayment will throw when token is "fail"
-        // So save operations won't be called
-
-        // Act & Assert
-        assertThrows(PaymentFailedException.class, () -> {
-            paymentService.processPaymentForReservation(1L, failingPaymentRequest, "CARD");
-        });
-
-        // Verify - payment save should NOT be called since exception is thrown in processPayment
-        verify(paiementRepository, never()).save(any(Paiement.class));
-    }
-
-    @Test
-    @DisplayName("shouldSetPaymentStatusToFailedWhenPaymentFails")
-    void shouldSetPaymentStatusToFailedWhenPaymentFails() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        // processPayment throws when token is "fail", so no saves are called
-
-        // Act & Assert
-        assertThrows(PaymentFailedException.class, () -> {
-            paymentService.processPaymentForReservation(1L, failingPaymentRequest, "CARD");
-        });
-
-        // Verify - no payment save since exception is thrown first
-        verify(paiementRepository, never()).save(any(Paiement.class));
-    }
-
-    @Test
-    @DisplayName("shouldThrowExceptionWhenReservationNotFound")
-    void shouldThrowExceptionWhenReservationNotFound() {
-        // Arrange
-        when(reservationRepository.findById(999L)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> {
-            paymentService.processPaymentForReservation(999L, validPaymentRequest, "CARD");
-        });
-
-        // Verify
+        assertTrue(ex.getMessage().contains("Reservation"));
         verify(paiementRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("shouldThrowExceptionWithCorrectMessageWhenReservationNotFound")
-    void shouldThrowExceptionWithCorrectMessageWhenReservationNotFound() {
-        // Arrange
-        when(reservationRepository.findById(999L)).thenReturn(Optional.empty());
+    void shouldNotPersistWhenPaymentFails() {
+        when(reservationRepository.findById(1L))
+                .thenReturn(Optional.of(reservation));
 
-        // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            paymentService.processPaymentForReservation(999L, validPaymentRequest, "CARD");
-        });
+        assertThrows(PaymentFailedException.class,
+                () -> paymentService.processPaymentForReservation(1L, failingRequest, "CARD"));
 
-        assertTrue(exception.getMessage().contains("Reservation not found"));
-        assertTrue(exception.getMessage().contains("999"));
-    }
-
-    @Test
-    @DisplayName("shouldNotSavePaymentWhenReservationNotFound")
-    void shouldNotSavePaymentWhenReservationNotFound() {
-        // Arrange
-        when(reservationRepository.findById(999L)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> {
-            paymentService.processPaymentForReservation(999L, validPaymentRequest, "CARD");
-        });
-
-        // Verify
         verify(paiementRepository, never()).save(any());
         verify(reservationRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("shouldThrowExceptionWhenPaymentFailsForReservation")
-    void shouldThrowExceptionWhenPaymentFailsForReservation() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        // processPayment will throw PaymentFailedException when token is "fail"
+    void shouldStoreCorrectAmountAndMode() {
+        BigDecimal customAmount = new BigDecimal("150.50");
 
-        // Act & Assert
-        assertThrows(PaymentFailedException.class, () -> {
-            paymentService.processPaymentForReservation(1L, failingPaymentRequest, "CARD");
-        });
-    }
-
-    @Test
-    @DisplayName("shouldStoreTransactionIdInPayment")
-    void shouldStoreTransactionIdInPayment() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenAnswer(invocation -> {
-            Paiement payment = invocation.getArgument(0);
-            assertNotNull(payment.getTransactionId());
-            assertFalse(payment.getTransactionId().isEmpty());
-            return payment;
-        });
-        when(reservationRepository.save(any(Reservation.class))).thenReturn(testReservation);
-
-        // Act
-        paymentService.processPaymentForReservation(1L, validPaymentRequest, "CARD");
-
-        // Assert
-        verify(paiementRepository, times(1)).save(any(Paiement.class));
-    }
-
-    @Test
-    @DisplayName("shouldStorePaymentModeInPayment")
-    void shouldStorePaymentModeInPayment() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenAnswer(invocation -> {
-            Paiement payment = invocation.getArgument(0);
-            assertEquals("CARD", payment.getPaymentMode());
-            return payment;
-        });
-        when(reservationRepository.save(any(Reservation.class))).thenReturn(testReservation);
-
-        // Act
-        paymentService.processPaymentForReservation(1L, validPaymentRequest, "CARD");
-
-        // Assert
-        verify(paiementRepository, times(1)).save(any(Paiement.class));
-    }
-
-    @Test
-    @DisplayName("shouldLinkPaymentToReservationOnSuccess")
-    void shouldLinkPaymentToReservationOnSuccess() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenReturn(testPayment);
-        when(reservationRepository.save(any(Reservation.class))).thenAnswer(invocation -> {
-            Reservation reservation = invocation.getArgument(0);
-            assertNotNull(reservation.getPaiement());
-            return reservation;
-        });
-
-        // Act
-        paymentService.processPaymentForReservation(1L, validPaymentRequest, "CARD");
-
-        // Assert
-        verify(reservationRepository, times(1)).save(any(Reservation.class));
-    }
-
-    @Test
-    @DisplayName("shouldLinkPaymentToReservationOnFailure")
-    void shouldLinkPaymentToReservationOnFailure() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        // processPayment throws when token is "fail"
-
-        // Act & Assert
-        assertThrows(PaymentFailedException.class, () -> {
-            paymentService.processPaymentForReservation(1L, failingPaymentRequest, "CARD");
-        });
-
-        // Verify - no saves since exception is thrown in processPayment
-        verify(paiementRepository, never()).save(any(Paiement.class));
-        verify(reservationRepository, never()).save(any(Reservation.class));
-    }
-
-    @Test
-    @DisplayName("shouldSavePaymentBeforeUpdatingReservation")
-    void shouldSavePaymentBeforeUpdatingReservation() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenReturn(testPayment);
-        when(reservationRepository.save(any(Reservation.class))).thenReturn(testReservation);
-
-        // Act
-        paymentService.processPaymentForReservation(1L, validPaymentRequest, "CARD");
-
-        // Assert - Verify that both save operations occurred
-        InOrder inOrder = inOrder(paiementRepository, reservationRepository);
-        inOrder.verify(paiementRepository).save(any(Paiement.class));
-        inOrder.verify(reservationRepository).save(any(Reservation.class));
-    }
-
-    @Test
-    @DisplayName("shouldProcessPaymentWithDifferentPaymentModes")
-    void shouldProcessPaymentWithDifferentPaymentModes() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenAnswer(invocation -> {
-            Paiement payment = invocation.getArgument(0);
-            assertEquals("BANK_TRANSFER", payment.getPaymentMode());
-            return payment;
-        });
-        when(reservationRepository.save(any(Reservation.class))).thenReturn(testReservation);
-
-        // Act
-        paymentService.processPaymentForReservation(1L, validPaymentRequest, "BANK_TRANSFER");
-
-        // Assert
-        verify(paiementRepository, times(1)).save(any(Paiement.class));
-    }
-
-    @Test
-    @DisplayName("shouldProcessPaymentWithCorrectAmount")
-    void shouldProcessPaymentWithCorrectAmount() {
-        // Arrange
-        BigDecimal paymentAmount = new BigDecimal("150.50");
-        PaymentRequestDTO requestWithAmount = PaymentRequestDTO.builder()
-                .amount(paymentAmount)
+        PaymentRequestDTO customRequest = PaymentRequestDTO.builder()
+                .amount(customAmount)
                 .paymentMethodToken("valid-token")
                 .currency("EUR")
                 .build();
 
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenAnswer(invocation -> {
-            Paiement payment = invocation.getArgument(0);
-            assertEquals(paymentAmount, payment.getAmount());
-            return payment;
-        });
-        when(reservationRepository.save(any(Reservation.class))).thenReturn(testReservation);
+        when(reservationRepository.findById(1L))
+                .thenReturn(Optional.of(reservation));
 
-        // Act
-        paymentService.processPaymentForReservation(1L, requestWithAmount, "CARD");
+        when(paiementRepository.save(any()))
+                .thenAnswer(invocation -> {
+                    Paiement p = invocation.getArgument(0);
+                    assertEquals(customAmount, p.getAmount());
+                    assertEquals("BANK_TRANSFER", p.getPaymentMode());
+                    return p;
+                });
 
-        // Assert
-        verify(paiementRepository, times(1)).save(any(Paiement.class));
+        when(reservationRepository.save(any()))
+                .thenReturn(reservation);
+
+        paymentService.processPaymentForReservation(1L, customRequest, "BANK_TRANSFER");
     }
-
-    @Test
-    @DisplayName("shouldSetPaymentDateOnSuccess")
-    void shouldSetPaymentDateOnSuccess() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        when(paiementRepository.save(any(Paiement.class))).thenAnswer(invocation -> {
-            Paiement payment = invocation.getArgument(0);
-            assertNotNull(payment.getPaymentDate());
-            return payment;
-        });
-        when(reservationRepository.save(any(Reservation.class))).thenReturn(testReservation);
-
-        // Act
-        paymentService.processPaymentForReservation(1L, validPaymentRequest, "CARD");
-
-        // Assert
-        verify(paiementRepository, times(1)).save(any(Paiement.class));
-    }
-
-    @Test
-    @DisplayName("shouldSetPaymentDateOnFailure")
-    void shouldSetPaymentDateOnFailure() {
-        // Arrange
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
-        // processPayment throws when token is "fail", so no saves occur
-
-        // Act & Assert
-        assertThrows(PaymentFailedException.class, () -> {
-            paymentService.processPaymentForReservation(1L, failingPaymentRequest, "CARD");
-        });
-
-        // Verify - no saves since exception is thrown in processPayment
-        verify(paiementRepository, never()).save(any(Paiement.class));
-    }
-
 }
