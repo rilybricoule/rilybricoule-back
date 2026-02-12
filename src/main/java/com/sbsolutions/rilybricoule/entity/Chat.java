@@ -28,12 +28,12 @@ public class Chat {
     // Client
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
-    private Client client;
+    private User client;
 
     // Prestataire
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "prestataire_id", nullable = false)
-    private Prestataire prestataire;
+    private User prestataire;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -47,5 +47,15 @@ public class Chat {
     // Messages du chat
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Message> messages = new ArrayList<>();
-}
 
+
+    public User getOtherUser(User sender) {
+        if (sender.getId().equals(client.getId())) {
+            return prestataire;
+        } else if (sender.getId().equals(prestataire.getId())) {
+            return client;
+        } else {
+            throw new IllegalArgumentException("User is not part of this chat");
+        }
+    }
+}

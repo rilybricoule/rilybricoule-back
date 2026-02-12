@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -57,7 +59,7 @@ public class ReservationService {
         Client client = clientOpt.get();
         Prestataire prestataire = prestaireOpt.get();
         
-        // Initialize base reservation with PENDING_PAYMENT status
+        // Initialize base reservation
         Reservation reservation = Reservation.builder()
             .reservationDate(request.getReservationDate())
             .reservationTime(request.getReservationTime())
@@ -98,13 +100,11 @@ public class ReservationService {
 
     /**
      * Create reservation and process payment.
-     * On payment success: reservation.status = CONFIRMED and paiement.status = SUCCESS
-     * On payment failure: reservation.status = CANCELLED and paiement.status = FAILED
-     * Applies coupon discount if valid.
+     * On payment success mark reservation as CONFIRMED.
+     * On payment failure a PaymentFailedException is thrown.
      */
     public ReservationResponse createReservationWithPayment(CreateReservationRequest request,
-                                                           com.sbsolutions.rilybricoule.dto.PaymentRequestDTO paymentRequest,
-                                                           String paymentMode)
+                                                           com.sbsolutions.rilybricoule.dto.PaymentRequestDTO paymentRequest)
             throws IllegalArgumentException {
 
         // Validate client exists
@@ -133,7 +133,7 @@ public class ReservationService {
             .status(Reservation.ReservationStatus.PENDING_PAYMENT)
             .build();
 
-        // Apply coupon if provided and valid
+        // Apply coupon if provided
         if (request.getCouponId() != null) {
             java.util.Optional<Coupon> couponOpt = couponService.findById(request.getCouponId());
             if (couponOpt.isPresent()) {
@@ -147,10 +147,10 @@ public class ReservationService {
 
         reservation.setTotalPrice(calculateTotalPrice(prestataire, reservation.getDiscountAmount()));
 
-        // Persist initial reservation as PENDING_PAYMENT
+        // Persist initial reservation as PENDING
         Reservation saved = reservationRepository.save(reservation);
 
-        // Prepare payment request with reservation total
+        // Prepare payment request (amount should match reservation total)
         com.sbsolutions.rilybricoule.dto.PaymentRequestDTO paymentReq = paymentRequest;
         if (paymentReq == null) {
             throw new IllegalArgumentException("Payment information is required");
@@ -160,26 +160,15 @@ public class ReservationService {
             paymentReq.setCurrency("EUR");
         }
 
-        // Process payment and link with reservation
-        // This method handles both success and failure cases, updating reservation and payment statuses
-        try {
-            paymentService.processPaymentForReservation(
-                saved.getId(), 
-                paymentReq, 
-                paymentMode != null ? paymentMode : "CARD"
-            );
-            
-            // Retrieve updated reservation with confirmed status
-            Reservation confirmed = reservationRepository.findById(saved.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Reservation not found after payment"));
+        // Process payment (may throw PaymentFailedException)
+        com.sbsolutions.rilybricoule.dto.PaymentResponseDTO paymentResp = paymentService.processPayment(paymentReq);
+
+        if (paymentResp != null && paymentResp.isSuccess()) {
+            saved.setStatus(Reservation.ReservationStatus.CONFIRMED);
+            Reservation confirmed = reservationRepository.save(saved);
             return ReservationResponse.fromEntity(confirmed);
-        } catch (com.sbsolutions.rilybricoule.exceptions.PaymentFailedException e) {
-            // Payment failed - reservation status already set to CANCELLED by PaymentService
-            Reservation cancelled = reservationRepository.findById(saved.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Reservation not found after payment failure"));
-            throw new com.sbsolutions.rilybricoule.exceptions.PaymentFailedException(
-                "Payment processing failed: " + e.getMessage()
-            );
+        } else {
+            throw new com.sbsolutions.rilybricoule.exceptions.PaymentFailedException("Payment failed");
         }
     }
     
@@ -208,7 +197,7 @@ public class ReservationService {
      * Get all reservations for a prestataire.
      */
     public List<ReservationResponse> getPrestaireReservations(Long prestaireId) {
-        List<Reservation> reservations = reservationRepository.findByPrestataireId(prestaireId);
+        List<Reservation> reservations = reservationRepository.findByPrestaireId(prestaireId);
         return reservations.stream()
             .map(ReservationResponse::fromEntity)
             .collect(Collectors.toList());
@@ -263,16 +252,6 @@ public class ReservationService {
         }
         
         return basePrice;
-    }
-    
-    /**
-     * Create reservation and process payment (backward-compatible overload).
-     * Delegates to createReservationWithPayment with default paymentMode = "CARD".
-     */
-    public ReservationResponse createReservationWithPayment(CreateReservationRequest request,
-                                                           com.sbsolutions.rilybricoule.dto.PaymentRequestDTO paymentRequest)
-            throws IllegalArgumentException {
-        return createReservationWithPayment(request, paymentRequest, "CARD");
     }
     
     /**
