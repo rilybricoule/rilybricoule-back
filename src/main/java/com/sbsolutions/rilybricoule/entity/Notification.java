@@ -25,13 +25,17 @@ public class Notification {
     private LocalDateTime date;
 
 
+    @Column(nullable = false)
+    private boolean vu;
+
+
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NotificationType type;
 
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "prestataire_id", nullable = false)
-    private Prestataire prestataire;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User receiver;
 }
 

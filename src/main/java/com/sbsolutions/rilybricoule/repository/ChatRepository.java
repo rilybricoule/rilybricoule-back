@@ -8,6 +8,6 @@ import java.util.Optional;
 public interface ChatRepository extends JpaRepository<Chat,Long> {
 
 
-    Optional<Chat> findByClientAndPrestataireAndReservation(Client client, Prestataire prestataire, Reservation reservation);
+    Optional<Chat> findByClientIdAndPrestataireIdAndReservationId(Long senderId, Long receiverId,Long reservationId);
 
 }

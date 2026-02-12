@@ -15,7 +15,7 @@ import lombok.*;
 @AllArgsConstructor
 public class ChatInputDto {
 
-    private Long clientId;
-    private Long prestataireId;
+    private Long senderId;
+    private Long receiverId;
     private Long reservationId;
 }

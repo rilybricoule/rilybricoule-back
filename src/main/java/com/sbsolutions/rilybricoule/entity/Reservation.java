@@ -40,7 +40,7 @@ public class Reservation {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private ReservationStatus status = ReservationStatus.PENDING;
+    private ReservationStatus status = ReservationStatus.PENDING_PAYMENT;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
@@ -57,7 +57,10 @@ public class Reservation {
     @OneToOne(mappedBy = "reservation", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY, optional = true)
     private Avis avis;
     
+    @OneToOne(mappedBy = "reservation", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY, optional = true)
+    private Paiement paiement;
+    
     public enum ReservationStatus {
-        PENDING, CONFIRMED, COMPLETED, CANCELLED
+        PENDING_PAYMENT, CONFIRMED, COMPLETED, CANCELLED
     }
 }
