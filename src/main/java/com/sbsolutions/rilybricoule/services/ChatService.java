@@ -1,17 +1,14 @@
 package com.sbsolutions.rilybricoule.services;
 
-import com.sbsolutions.rilybricoule.dto.input.ChatInputDto;
-import com.sbsolutions.rilybricoule.dto.output.ChatOutputDto;
 import com.sbsolutions.rilybricoule.entity.*;
 import com.sbsolutions.rilybricoule.repository.ChatRepository;
-import com.sbsolutions.rilybricoule.repository.MessageRepository;
 import com.sbsolutions.rilybricoule.repository.ReservationRepository;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class ChatService implements IChatService {
