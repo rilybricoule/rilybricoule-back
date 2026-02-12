@@ -85,7 +85,7 @@ public class ReservationController {
     /**
      * Get all reservations for a specific prestataire.
      */
-    @GetMapping("/prestataire/{prestaireId}")
+    /*@GetMapping("/prestataire/{prestaireId}")
     public ResponseEntity<List<ReservationResponse>> getPrestaireReservations(@PathVariable Long prestaireId) {
         List<ReservationResponse> responses = reservationService.getPrestaireReservations(prestaireId);
         return ResponseEntity.ok(responses);
