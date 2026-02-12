@@ -30,6 +30,7 @@ public class ReservationService {
     private final PrestaireRepository prestaireRepository;
     private final CouponRepository couponRepository;
     private final CouponService couponService;
+    private final PaymentService paymentService;
     
     /**
      * Create a new reservation with optional coupon application.
@@ -65,7 +66,7 @@ public class ReservationService {
             .prestataire(prestataire)
             .totalPrice(BigDecimal.ZERO)
             .discountAmount(BigDecimal.ZERO)
-            .status(Reservation.ReservationStatus.PENDING)
+            //.status(Reservation.ReservationStatus.PENDING)
             .build();
         
         // Apply coupon if provided
@@ -94,6 +95,80 @@ public class ReservationService {
         
         return ReservationResponse.fromEntity(savedReservation);
     }
+
+    /**
+     * Create reservation and process payment.
+     * On payment success mark reservation as CONFIRMED.
+     * On payment failure a PaymentFailedException is thrown.
+     */
+    public ReservationResponse createReservationWithPayment(CreateReservationRequest request,
+                                                           com.sbsolutions.rilybricoule.dto.PaymentRequestDTO paymentRequest)
+            throws IllegalArgumentException {
+
+        // Validate client exists
+        java.util.Optional<Client> clientOpt = clientRepository.findById(request.getClientId());
+        if (clientOpt.isEmpty()) {
+            throw new IllegalArgumentException("Client not found with ID: " + request.getClientId());
+        }
+        
+        // Validate prestataire exists
+        java.util.Optional<Prestataire> prestaireOpt = prestaireRepository.findById(request.getPrestaireId());
+        if (prestaireOpt.isEmpty()) {
+            throw new IllegalArgumentException("Prestataire not found with ID: " + request.getPrestaireId());
+        }
+        
+        Client client = clientOpt.get();
+        Prestataire prestataire = prestaireOpt.get();
+
+        Reservation reservation = Reservation.builder()
+            .reservationDate(request.getReservationDate())
+            .reservationTime(request.getReservationTime())
+            .description(request.getDescription())
+            .client(client)
+            .prestataire(prestataire)
+            .totalPrice(java.math.BigDecimal.ZERO)
+            .discountAmount(java.math.BigDecimal.ZERO)
+            //.status(Reservation.ReservationStatus.PENDING)
+            .build();
+
+        // Apply coupon if provided
+        if (request.getCouponId() != null) {
+            java.util.Optional<Coupon> couponOpt = couponService.findById(request.getCouponId());
+            if (couponOpt.isPresent()) {
+                Coupon coupon = couponOpt.get();
+                if (couponService.isValid(coupon)) {
+                    reservation.setCoupon(coupon);
+                    reservation.setDiscountAmount(coupon.getDiscountAmount());
+                }
+            }
+        }
+
+        reservation.setTotalPrice(calculateTotalPrice(prestataire, reservation.getDiscountAmount()));
+
+        // Persist initial reservation as PENDING
+        Reservation saved = reservationRepository.save(reservation);
+
+        // Prepare payment request (amount should match reservation total)
+        com.sbsolutions.rilybricoule.dto.PaymentRequestDTO paymentReq = paymentRequest;
+        if (paymentReq == null) {
+            throw new IllegalArgumentException("Payment information is required");
+        }
+        paymentReq.setAmount(saved.getTotalPrice());
+        if (paymentReq.getCurrency() == null) {
+            paymentReq.setCurrency("EUR");
+        }
+
+        // Process payment (may throw PaymentFailedException)
+        com.sbsolutions.rilybricoule.dto.PaymentResponseDTO paymentResp = paymentService.processPayment(paymentReq);
+
+        if (paymentResp != null && paymentResp.isSuccess()) {
+            saved.setStatus(Reservation.ReservationStatus.CONFIRMED);
+            Reservation confirmed = reservationRepository.save(saved);
+            return ReservationResponse.fromEntity(confirmed);
+        } else {
+            throw new com.sbsolutions.rilybricoule.exceptions.PaymentFailedException("Payment failed");
+        }
+    }
     
     /**
      * Get a reservation by ID.
@@ -119,8 +194,8 @@ public class ReservationService {
     /**
      * Get all reservations for a prestataire.
      */
-    public List<ReservationResponse> getPrestaireReservations(Long prestaireId) {
-        List<Reservation> reservations = reservationRepository.findByPrestaireId(prestaireId);
+   /* public List<ReservationResponse> getPrestaireReservations(Long prestaireId) {
+        List<Reservation> reservations = reservationRepository.findByPrestataireId(prestaireId);
         return reservations.stream()
             .map(ReservationResponse::fromEntity)
             .collect(Collectors.toList());
