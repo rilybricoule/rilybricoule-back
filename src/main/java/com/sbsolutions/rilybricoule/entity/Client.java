@@ -39,7 +39,6 @@ public class Client {
     @ManyToOne
     private Client client;
 
-
     @Column
     private Double latitude;
 

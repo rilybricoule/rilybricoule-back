@@ -10,11 +10,14 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GeocodingService {
 
-    @Value("${google.maps.api.key}")
+    @Value("${google.maps.api.key:}")
     private String apiKey;
     private final RestTemplate restTemplate = new RestTemplate();
     public Double[] getCoordinates(String address) {
 
+        if (apiKey == null || apiKey.isBlank()) {
+            return null;
+        }
         String url = "https://maps.googleapis.com/maps/api/geocode/json" +
                 "?address=" + address.replace(" ", "+") +
                 "&key=" + apiKey;
