@@ -6,6 +6,7 @@ import com.sbsolutions.rilybricoule.dto.output.ChatOutputDto;
 import com.sbsolutions.rilybricoule.dto.output.MessageOutputDto;
 import com.sbsolutions.rilybricoule.entity.*;
 import com.sbsolutions.rilybricoule.services.ChatService;
+import com.sbsolutions.rilybricoule.services.IChatService;
 import com.sbsolutions.rilybricoule.services.IMessageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatController {
 
-    private final ChatService chatService;
+    private final IChatService chatService;
     private final IMessageService messageService;
 
     // ------------------- START OR GET CHAT -------------------
@@ -42,11 +43,16 @@ public class ChatController {
             @RequestBody ChatInputDto dto
     ) {
         // Build minimal entity references from IDs
-        Client client = Client.builder().id(dto.getClientId()).build();
-        Prestataire prestataire = Prestataire.builder().id(dto.getPrestataireId()).build();
-        Reservation reservation = Reservation.builder().id(dto.getReservationId()).build();
+        User sender = new User();
+        sender.setId(dto.getSenderId());
 
-        Chat chat = chatService.startOrGetChat(client, prestataire, reservation);
+        User receiver = new User();
+        receiver.setId(dto.getReceiverId());
+
+        Reservation reservation = new Reservation();
+        reservation.setId(dto.getReservationId());
+
+        Chat chat = chatService.startOrGetChat(sender.getId(), receiver.getId(), reservation.getId());
 
         ChatOutputDto output = ChatOutputDto.builder()
                 .clientName(chat.getClient().getFirstName())
@@ -58,51 +64,6 @@ public class ChatController {
         return ResponseEntity.ok(output);
     }
 
-    // ------------------- SEND MESSAGE -------------------
-    @Operation(summary = "Send a message in a chat")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Message sent successfully"),
-            @ApiResponse(responseCode = "404", description = "Chat not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid input")
-    })
-    @PostMapping("/{chatId}/messages")
-    public ResponseEntity<MessageOutputDto> sendMessage(
-            @Parameter(description = "ID of the chat") @PathVariable Long chatId,
-            @RequestBody MessageInputDto dto
-    ) {
-        Message message = messageService.sendMessage(chatId, dto.getSender(), dto.getContenu());
 
-        MessageOutputDto output = MessageOutputDto.builder()
-                .senderName(message.getSender().getFirstName())
-                .content(message.getContent())
-                .sentAt(message.getSentAt())
-                .read(message.isRead())
-                .build();
 
-        return ResponseEntity.ok(output);
-    }
-
-    // ------------------- GET MESSAGES -------------------
-    @Operation(summary = "Get all messages in a chat, ordered by creation time")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Messages retrieved successfully"),
-            @ApiResponse(responseCode = "404", description = "Chat not found")
-    })
-    @GetMapping("/{chatId}/messages")
-    public ResponseEntity<List<MessageOutputDto>> getMessages(
-            @Parameter(description = "ID of the chat") @PathVariable Long chatId
-    ) {
-        List<Message> messages = messageService.getMessagesByChatId(chatId);
-
-        List<MessageOutputDto> output = messages.stream()
-                .map(m -> MessageOutputDto.builder()
-                        .senderName(m.getSender().getFirstName())
-                        .content(m.getContent())
-                        .sentAt(m.getSentAt())
-                        .read(m.isRead())
-                        .build())
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(output);
-    }
 }
