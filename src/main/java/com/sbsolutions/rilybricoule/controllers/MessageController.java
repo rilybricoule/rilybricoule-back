@@ -8,7 +8,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
+
+import org.springframework.web.bind.annotation.RequestBody;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,7 +34,7 @@ public class MessageController {
     })
     @PostMapping("/send")
     public ResponseEntity<MessageOutputDto> sendMessage(
-            @RequestBody(description = "Message input DTO containing chat ID, sender ID, and content")
+            @RequestBody
             MessageInputDto dto
     ) {
         MessageOutputDto output = messageService.sendMessage(
@@ -68,7 +69,7 @@ public class MessageController {
     })
     @PostMapping("/save")
     public ResponseEntity<MessageOutputDto> saveMessage(
-            @RequestBody(description = "Message input DTO containing chat ID, sender ID, and content")
+            @RequestBody
             MessageInputDto dto
     ) {
         MessageOutputDto output = messageService.saveMessage(
