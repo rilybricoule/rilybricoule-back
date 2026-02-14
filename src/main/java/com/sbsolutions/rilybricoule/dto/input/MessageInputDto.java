@@ -2,6 +2,7 @@ package com.sbsolutions.rilybricoule.dto.input;
 
 
 
+import com.sbsolutions.rilybricoule.entity.MessageType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,5 +24,7 @@ public class MessageInputDto {
 
     private String imageUrl;
 
-    private LocalDateTime sentAt;// optional
+    private LocalDateTime sentAt;
+
+    private MessageType messageType;// optional
 }

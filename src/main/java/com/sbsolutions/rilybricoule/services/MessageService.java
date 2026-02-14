@@ -4,6 +4,7 @@ import com.sbsolutions.rilybricoule.dto.input.MessageInputDto;
 import com.sbsolutions.rilybricoule.dto.output.MessageOutputDto;
 import com.sbsolutions.rilybricoule.entity.Chat;
 import com.sbsolutions.rilybricoule.entity.Message;
+import com.sbsolutions.rilybricoule.entity.MessageType;
 import com.sbsolutions.rilybricoule.entity.User;
 import com.sbsolutions.rilybricoule.mapper.MessageMapper;
 import com.sbsolutions.rilybricoule.repository.ChatRepository;
@@ -29,6 +30,7 @@ public class MessageService implements IMessageService {
     // ------------------- SEND MESSAGE -------------------
     @Override
     public MessageOutputDto sendMessage(Long chatId, Long senderId, String content) {
+        System.out.println("chatId = " + chatId);
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new RuntimeException("Chat not found"));
 
@@ -41,6 +43,8 @@ public class MessageService implements IMessageService {
         inputDto.setChatId(chatId);
         inputDto.setSenderId(senderId);
         inputDto.setContent(content);
+        inputDto.setSentAt(LocalDateTime.now());
+
 
         return saveMessage(chatId, senderId, inputDto);
     }
@@ -67,6 +71,7 @@ public class MessageService implements IMessageService {
                 .content(inputDto.getContent())
                 .sentAt(LocalDateTime.now())
                 .read(false)
+                .messageType(MessageType.TEXT)
                 .build();
 
         // Save the message

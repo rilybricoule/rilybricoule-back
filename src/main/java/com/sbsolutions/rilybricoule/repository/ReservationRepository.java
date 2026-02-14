@@ -10,11 +10,13 @@ import java.util.Optional;
 
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
-    List<Reservation> findByClientId(Long clientId);
-    List<Reservation> findByPrestaireId(Long prestaireId);
+
+    List<Reservation> findByClient_Id(Long clientId); // note _Id
+    List<Reservation> findByPrestataire_Id(Long prestataireId); // corrected
     List<Reservation> findByReservationDate(LocalDate date);
     List<Reservation> findByStatus(Reservation.ReservationStatus status);
-    List<Reservation> findByClientIdAndStatus(Long clientId, Reservation.ReservationStatus status);
-    List<Reservation> findByPrestaireIdAndStatus(Long prestaireId, Reservation.ReservationStatus status);
-    boolean existsByClientIdAndPrestaireId(Long clientId, Long prestaireId);
+    List<Reservation> findByClient_IdAndStatus(Long clientId, Reservation.ReservationStatus status); // corrected
+    List<Reservation> findByPrestataire_IdAndStatus(Long prestataireId, Reservation.ReservationStatus status); // corrected
+    boolean existsByClient_IdAndPrestataire_Id(Long clientId, Long prestataireId);
+
 }
