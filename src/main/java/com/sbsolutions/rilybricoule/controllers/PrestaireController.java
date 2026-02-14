@@ -61,7 +61,7 @@ public class PrestaireController {
         }
         
         Prestataire prestataire = prestaireOpt.get();
-        prestataire.setName(request.getName());
+        prestataire.setName(request.getName()); 
         prestataire.setDescription(request.getDescription());
         prestataire.setPhone(request.getPhone());
         prestataire.setEmail(request.getEmail());
@@ -89,6 +89,19 @@ public class PrestaireController {
             }
         }
     }
+    @GetMapping("/nearby")
+    public ResponseEntity<List<PrestaireDTO>> getNearbyPrestataires(@RequestParam double lat, @RequestParam double lng) {
+        final double RADIUS_KM = 10;
+        List<Long> ids = prestaireRepository.findNearbyIds(lat, lng, RADIUS_KM);
+        List<Prestataire> prestataires = prestaireRepository.findAllById(ids);
+        java.util.Map<Long, Integer> pos = new java.util.HashMap<>();
+        for (int i = 0; i < ids.size(); i++) pos.put(ids.get(i), i);
+        prestataires.sort(java.util.Comparator.comparingInt(p -> pos.getOrDefault(p.getId(), Integer.MAX_VALUE)));
+        List<PrestaireDTO> result = prestataires.stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+}
 
     private PrestaireDTO toDTO(Prestataire prestataire) {
         return PrestaireDTO.builder()

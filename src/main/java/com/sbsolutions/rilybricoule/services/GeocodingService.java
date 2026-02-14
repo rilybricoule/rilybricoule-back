@@ -18,6 +18,7 @@ public class GeocodingService {
         if (apiKey == null || apiKey.isBlank()) {
             return null;
         }
+
         String url = "https://maps.googleapis.com/maps/api/geocode/json" +
                 "?address=" + address.replace(" ", "+") +
                 "&key=" + apiKey;
