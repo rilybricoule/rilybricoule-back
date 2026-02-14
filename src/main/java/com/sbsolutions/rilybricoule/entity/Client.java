@@ -40,6 +40,13 @@ public class Client {
     private Client client;
 
 
+    @Column
+    private Double latitude;
+
+    @Column
+    private Double longitude;
+    
+
     @OneToMany(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @Builder.Default
     private Set<Reservation> reservations = new HashSet<>();
