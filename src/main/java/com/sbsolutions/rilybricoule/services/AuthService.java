@@ -4,12 +4,17 @@ import com.sbsolutions.rilybricoule.dto.JwtResponse;
 import com.sbsolutions.rilybricoule.dto.LoginRequest;
 import com.sbsolutions.rilybricoule.dto.RegisterRequest;
 import com.sbsolutions.rilybricoule.entity.*;
+import com.sbsolutions.rilybricoule.exceptions.EmailAlreadyExistsException;
+import com.sbsolutions.rilybricoule.exceptions.InvalidTokenException;
 import com.sbsolutions.rilybricoule.repository.RoleRepository;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
 import com.sbsolutions.rilybricoule.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +27,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -34,7 +40,7 @@ public class AuthService {
     @Transactional
     public JwtResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            throw new EmailAlreadyExistsException(request.getEmail());
         }
 
         User user;
@@ -71,21 +77,71 @@ public class AuthService {
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String accessToken = jwtService.generateToken(userDetails);
 
+        log.info("User registered successfully: {}", user.getEmail());
         return buildJwtResponse(user, accessToken);
     }
 
     public JwtResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (AuthenticationException ex) {
+            log.warn("Failed login attempt for email: {}", request.getEmail());
+            throw new BadCredentialsException("Invalid email or password");
+        }
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String accessToken = jwtService.generateToken(userDetails);
 
+        log.info("User logged in successfully: {}", user.getEmail());
         return buildJwtResponse(user, accessToken);
+    }
+
+    public String refreshToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new InvalidTokenException("Invalid authorization header");
+        }
+
+        String token = authHeader.substring(7);
+        String userEmail = jwtService.extractEmail(token);
+
+        if (userEmail == null) {
+            throw new InvalidTokenException("Could not extract user from token");
+        }
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+
+        if (!jwtService.isTokenValid(token, userDetails)) {
+            throw new InvalidTokenException("Token is invalid or expired");
+        }
+
+        log.info("Token refreshed for user: {}", userEmail);
+        return jwtService.generateToken(userDetails);
+    }
+
+    public boolean validateToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return false;
+        }
+
+        try {
+            String token = authHeader.substring(7);
+            String userEmail = jwtService.extractEmail(token);
+
+            if (userEmail == null) {
+                return false;
+            }
+
+            UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+            return jwtService.isTokenValid(token, userDetails);
+        } catch (Exception ex) {
+            log.debug("Token validation failed: {}", ex.getMessage());
+            return false;
+        }
     }
 
     private JwtResponse buildJwtResponse(User user, String accessToken) {
