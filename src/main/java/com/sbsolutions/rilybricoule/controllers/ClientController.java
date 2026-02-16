@@ -3,6 +3,7 @@ package com.sbsolutions.rilybricoule.controllers;
 import com.sbsolutions.rilybricoule.dto.ClientDTO;
 import com.sbsolutions.rilybricoule.entity.Client;
 import com.sbsolutions.rilybricoule.repository.ClientRepository;
+import com.sbsolutions.rilybricoule.services.GeocodingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,8 @@ import java.util.stream.Collectors;
 public class ClientController {
     
     private final ClientRepository clientRepository;
-    
+    private final GeocodingService geocodingService;
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ClientDTO> createClient(@RequestBody ClientDTO request) {
@@ -31,7 +33,8 @@ public class ClientController {
             .phone(request.getPhone())
             .address(request.getAddress())
             .build();
-        
+        setLatLngIfPossible(client);
+
         Client saved = clientRepository.save(client);
         return ResponseEntity.status(HttpStatus.CREATED).body(toDTO(saved));
     }
@@ -70,7 +73,7 @@ public class ClientController {
         client.setEmail(request.getEmail());
         client.setPhone(request.getPhone());
         client.setAddress(request.getAddress());
-        
+        setLatLngIfPossible(client);
         Client updated = clientRepository.save(client);
         return ResponseEntity.ok(toDTO(updated));
     }
@@ -84,7 +87,15 @@ public class ClientController {
         clientRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
-    
+    private void setLatLngIfPossible(Client client) {
+        if (client.getAddress() != null && !client.getAddress().isBlank()) {
+            Double[] coords = geocodingService.getCoordinates(client.getAddress());
+            if (coords != null) {
+                client.setLatitude(coords[0]);
+                client.setLongitude(coords[1]);
+            }
+        }
+    }
     private ClientDTO toDTO(Client client) {
         return ClientDTO.builder()
             .id(client.getId())
@@ -93,6 +104,8 @@ public class ClientController {
             .email(client.getEmail())
             .phone(client.getPhone())
             .address(client.getAddress())
+            .latitude(client.getLatitude())
+            .longitude(client.getLongitude())
             .build();
     }
 }

@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -35,6 +38,14 @@ public class Prestataire extends User {
     private Double latitude;
 
     private Double longitude;
+
+    @OneToMany(mappedBy = "prestataire", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Service> services = new HashSet<>();
+
+    @OneToMany(mappedBy = "prestataire", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Avis> avis = new HashSet<>();
 
     @Builder.Default
     @Column(nullable = false)
