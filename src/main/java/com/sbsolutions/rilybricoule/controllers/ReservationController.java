@@ -5,6 +5,7 @@ import com.sbsolutions.rilybricoule.dto.ReservationResponse;
 import com.sbsolutions.rilybricoule.dto.ReservationPaymentRequest;
 import com.sbsolutions.rilybricoule.exceptions.PaymentFailedException;
 import com.sbsolutions.rilybricoule.services.ReservationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,23 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * REST API Controller for reservation management.
+ * 
+ * Endpoints:
+ * - POST /api/reservations - Create a new reservation
+ * - POST /api/reservations/with-payment - Create reservation and process payment
+ * - GET /api/reservations/{id} - Get reservation by ID
+ * - GET /api/reservations/client/{clientId} - Get reservations for a client
+ * - GET /api/reservations/prestataire/{prestaireId} - Get reservations for a prestataire
+ * - PATCH /api/reservations/{id}/status - Update reservation status
+ * - POST /api/reservations/{id}/cancel - Cancel a reservation
+ * - GET /api/reservations/by-date - Get reservations by date
+ * 
+ * Uses DTOs for request/response for API consistency and security.
+ * Request body validation is automatically enforced via @Valid annotation.
+ * Exception handling is delegated to RestExceptionHandler.
+ */
 @RestController
 @RequestMapping("/api/reservations")
 @RequiredArgsConstructor
@@ -22,59 +40,62 @@ public class ReservationController {
     
     /**
      * Create a new reservation.
-     * Accepts optional coupon ID which is validated and applied if valid.
+     * 
+     * Business logic:
+     * - Validates client and prestataire exist
+     * - Applies valid coupon if provided
+     * - Sets status to PENDING_PAYMENT
+     * 
+     * @param request the CreateReservationRequest (validated)
+     * @return ResponseEntity with created ReservationResponse and 201 CREATED status
+     * @throws IllegalArgumentException if client or prestataire not found
      */
     @PostMapping
-    public ResponseEntity<?> createReservation(@RequestBody CreateReservationRequest request) {
-        try {
-            ReservationResponse response = reservationService.createReservation(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body("Error: " + e.getMessage());
-        }
+    public ResponseEntity<ReservationResponse> createReservation(@Valid @RequestBody CreateReservationRequest request) {
+        ReservationResponse response = reservationService.createReservation(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
-     * Create reservation and process payment.
-     * Accepts combined reservation + payment payload.
+     * Create a reservation and immediately process payment in one transaction.
+     * 
+     * Business logic:
+     * - Creates a new reservation (see createReservation)
+     * - Processes payment with the reservation amount
+     * - On success: Reservation status = CONFIRMED
+     * - On failure: Reservation is rolled back and exception is thrown
+     * 
+     * @param request the ReservationPaymentRequest with both reservation and payment data
+     * @return ResponseEntity with ReservationResponse (CONFIRMED status) and 201 CREATED
+     * @throws IllegalArgumentException if required data is missing
+     * @throws PaymentFailedException if payment processing fails
      */
     @PostMapping("/with-payment")
-    public ResponseEntity<?> createReservationWithPayment(@RequestBody ReservationPaymentRequest request) {
-        try {
-            if (request == null || request.getReservation() == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Reservation data is required");
-            }
-
-            ReservationResponse response = reservationService.createReservationWithPayment(
-                request.getReservation(), request.getPayment());
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error: " + e.getMessage());
-        } catch (PaymentFailedException e) {
-            return ResponseEntity.status(402).body("Payment Required: " + e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error: " + e.getMessage());
-        }
+    public ResponseEntity<ReservationResponse> createReservationWithPayment(
+            @Valid @RequestBody ReservationPaymentRequest request) {
+        ReservationResponse response = reservationService.createReservationWithPayment(
+            request.getReservation(), request.getPayment());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     
     /**
-     * Get a reservation by ID.
+     * Get a specific reservation by ID.
+     * 
+     * @param id the reservation ID
+     * @return ResponseEntity with ReservationResponse
+     * @throws IllegalArgumentException if reservation not found
      */
     @GetMapping("/{id}")
-    public ResponseEntity<?> getReservation(@PathVariable Long id) {
-        try {
-            ReservationResponse response = reservationService.getReservation(id);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Error: " + e.getMessage());
-        }
+    public ResponseEntity<ReservationResponse> getReservation(@PathVariable Long id) {
+        ReservationResponse response = reservationService.getReservation(id);
+        return ResponseEntity.ok(response);
     }
     
     /**
-     * Get all reservations for a specific client.
+     * Get all reservations made by a specific client.
+     * 
+     * @param clientId the client ID
+     * @return ResponseEntity with list of ReservationResponse objects
      */
     @GetMapping("/client/{clientId}")
     public ResponseEntity<List<ReservationResponse>> getClientReservations(@PathVariable Long clientId) {
@@ -83,7 +104,10 @@ public class ReservationController {
     }
     
     /**
-     * Get all reservations for a specific prestataire.
+     * Get all reservations assigned to a specific prestataire (service provider).
+     * 
+     * @param prestaireId the prestataire ID
+     * @return ResponseEntity with list of ReservationResponse objects
      */
     @GetMapping("/prestataire/{prestaireId}")
     public ResponseEntity<List<ReservationResponse>> getPrestaireReservations(@PathVariable Long prestaireId) {
@@ -92,37 +116,43 @@ public class ReservationController {
     }
     
     /**
-     * Update reservation status.
+     * Update the status of a reservation.
+     * 
+     * Valid status values: PENDING_PAYMENT, CONFIRMED, COMPLETED, CANCELLED
+     * 
+     * @param id the reservation ID
+     * @param status the new status (enum value as string)
+     * @return ResponseEntity with updated ReservationResponse
+     * @throws IllegalArgumentException if reservation not found or status is invalid
      */
     @PatchMapping("/{id}/status")
-    public ResponseEntity<?> updateReservationStatus(
+    public ResponseEntity<ReservationResponse> updateReservationStatus(
             @PathVariable Long id,
             @RequestParam String status) {
-        try {
-            ReservationResponse response = reservationService.updateReservationStatus(id, status);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body("Error: " + e.getMessage());
-        }
+        ReservationResponse response = reservationService.updateReservationStatus(id, status);
+        return ResponseEntity.ok(response);
     }
     
     /**
      * Cancel a reservation.
+     * 
+     * Sets the reservation status to CANCELLED.
+     * 
+     * @param id the reservation ID
+     * @return ResponseEntity with updated ReservationResponse (CANCELLED status)
+     * @throws IllegalArgumentException if reservation not found
      */
     @PostMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelReservation(@PathVariable Long id) {
-        try {
-            ReservationResponse response = reservationService.cancelReservation(id);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Error: " + e.getMessage());
-        }
+    public ResponseEntity<ReservationResponse> cancelReservation(@PathVariable Long id) {
+        ReservationResponse response = reservationService.cancelReservation(id);
+        return ResponseEntity.ok(response);
     }
     
     /**
-     * Get reservations by date.
+     * Get all reservations scheduled for a specific date.
+     * 
+     * @param date the reservation date to filter by
+     * @return ResponseEntity with list of ReservationResponse objects for the date
      */
     @GetMapping("/by-date")
     public ResponseEntity<List<ReservationResponse>> getReservationsByDate(
