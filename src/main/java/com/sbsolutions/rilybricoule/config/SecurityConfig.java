@@ -1,5 +1,6 @@
 package com.sbsolutions.rilybricoule.config;
 
+import com.sbsolutions.rilybricoule.security.JwtAuthenticationEntryPoint;
 import com.sbsolutions.rilybricoule.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -27,26 +28,68 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
+    private final JwtAuthenticationEntryPoint jwtAuthEntryPoint;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+
+                        // ──── Public endpoints ────
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
 
-                        // Client endpoints - ADMIN can manage all, CLIENT can read
+                        // ──── Client endpoints ────
+                        // Clients can read their own profile; ADMIN can manage all
                         .requestMatchers(HttpMethod.GET, "/api/clients/**").hasAnyRole("CLIENT", "ADMIN")
-                        .requestMatchers("/api/clients/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/clients/**").hasAnyRole("CLIENT", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/clients/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/clients/**").hasRole("ADMIN")
 
-                        // Prestataire endpoints - ADMIN can manage all, PRESTATAIRE can read
-                        .requestMatchers(HttpMethod.GET, "/api/prestataires/**").hasAnyRole("PRESTATAIRE", "ADMIN")
-                        .requestMatchers("/api/prestataires/**").hasRole("ADMIN")
+                        // ──── Prestataire endpoints ────
+                        // Prestataires can read/update their own profile; ADMIN can manage all
+                        .requestMatchers(HttpMethod.GET, "/api/prestataires/**").hasAnyRole("PRESTATAIRE", "CLIENT", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/prestataires/**").hasAnyRole("PRESTATAIRE", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/prestataires/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/prestataires/**").hasRole("ADMIN")
 
-                        // Everything else requires authentication
+                        // ──── Reservation endpoints ────
+                        // Creating reservations: CLIENT only
+                        .requestMatchers(HttpMethod.POST, "/api/reservations", "/api/reservations/with-payment").hasAnyRole("CLIENT", "ADMIN")
+                        // Cancelling a reservation: CLIENT or ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/reservations/*/cancel").hasAnyRole("CLIENT", "ADMIN")
+                        // Updating reservation status (accept/refuse): PRESTATAIRE or ADMIN
+                        .requestMatchers(HttpMethod.PATCH, "/api/reservations/*/status").hasAnyRole("PRESTATAIRE", "ADMIN")
+                        // Reading reservations: any authenticated user (service-layer enforces ownership)
+                        .requestMatchers(HttpMethod.GET, "/api/reservations/**").authenticated()
+
+                        // ──── Coupon endpoints ────
+                        // Reading coupons: any authenticated user
+                        .requestMatchers(HttpMethod.GET, "/api/coupons/**").authenticated()
+                        // Managing coupons (create/update/delete): ADMIN only
+                        .requestMatchers(HttpMethod.POST, "/api/coupons/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/coupons/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/coupons/**").hasRole("ADMIN")
+
+                        // ──── Avis (reviews) endpoints ────
+                        // Posting a review: CLIENT only
+                        .requestMatchers(HttpMethod.POST, "/api/avis/**").hasAnyRole("CLIENT", "ADMIN")
+                        // Reading reviews: any authenticated user
+                        .requestMatchers(HttpMethod.GET, "/api/avis/**").authenticated()
+
+                        // ──── Chat & Messages endpoints ────
+                        // Both CLIENT and PRESTATAIRE can participate in chats
+                        .requestMatchers("/api/chats/**").hasAnyRole("CLIENT", "PRESTATAIRE", "ADMIN")
+                        .requestMatchers("/api/messages/**").hasAnyRole("CLIENT", "PRESTATAIRE", "ADMIN")
+
+                        // ──── Notification endpoints ────
+                        // Any authenticated user can manage their own notifications
+                        .requestMatchers("/api/notifications/**").authenticated()
+
+                        // ──── Default: deny unauthenticated ────
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())

@@ -1,9 +1,14 @@
 package com.sbsolutions.rilybricoule.controllers;
 
+import com.sbsolutions.rilybricoule.exceptions.EmailAlreadyExistsException;
+import com.sbsolutions.rilybricoule.exceptions.InvalidTokenException;
 import com.sbsolutions.rilybricoule.exceptions.PaymentFailedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -14,51 +19,15 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Global exception handler for REST API.
- * 
- * Provides centralized exception handling and customized error responses
- * for all REST endpoints. Ensures consistent API error format across all endpoints.
- * 
- * Handles:
- * - MethodArgumentNotValidException: Request body validation errors (400)
- * - IllegalArgumentException: Business logic errors (400)
- * - PaymentFailedException: Payment processing errors (402)
- * - Generic Exception: Unexpected errors (500)
- * 
- * Response format includes:
- * - timestamp: When the error occurred
- * - status: HTTP status code
- * - error: Error type/message
- * - message: Detailed error description
- * - details: Field-specific validation errors (if applicable)
- * - path: The request URL path
- * 
- * @author RilyBricoule Backend Team
- * @version 1.0
- */
 @ControllerAdvice
 @Slf4j
 public class RestExceptionHandler {
 
-    /**
-     * Handle request body validation errors (MethodArgumentNotValidException).
-     * 
-     * Called when @Valid annotation fails on request body validation.
-     * Collects all field-level validation errors and returns them in a structured format.
-     * 
-     * HTTP Status: 400 Bad Request
-     * 
-     * @param ex the MethodArgumentNotValidException containing validation errors
-     * @param request the current web request
-     * @return ResponseEntity with validation error details
-     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationException(
             MethodArgumentNotValidException ex,
             WebRequest request) {
         
-        // Collect field validation errors
         Map<String, String> fieldErrors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
@@ -78,20 +47,6 @@ public class RestExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    /**
-     * Handle business logic errors (IllegalArgumentException).
-     * 
-     * Thrown when business rules are violated, such as:
-     * - Entity not found (client, prestataire, coupon, reservation)
-     * - Invalid entity references
-     * - Invalid status transitions
-     * 
-     * HTTP Status: 400 Bad Request
-     * 
-     * @param ex the IllegalArgumentException with error details
-     * @param request the current web request
-     * @return ResponseEntity with error details
-     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(
             IllegalArgumentException ex,
@@ -108,18 +63,6 @@ public class RestExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    /**
-     * Handle payment processing errors (PaymentFailedException).
-     * 
-     * Thrown when payment processing fails through the payment gateway.
-     * This is a specific business exception indicating payment-related issues.
-     * 
-     * HTTP Status: 402 Payment Required
-     * 
-     * @param ex the PaymentFailedException with payment error details
-     * @param request the current web request
-     * @return ResponseEntity with payment error details
-     */
     @ExceptionHandler(PaymentFailedException.class)
     public ResponseEntity<Map<String, Object>> handlePaymentFailed(
             PaymentFailedException ex,
@@ -127,7 +70,7 @@ public class RestExceptionHandler {
         
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());
-        response.put("status", 402); // Payment Required
+        response.put("status", 402);
         response.put("error", "Payment Failed");
         response.put("message", ex.getMessage());
         response.put("path", request.getDescription(false).replace("uri=", ""));
@@ -136,18 +79,59 @@ public class RestExceptionHandler {
         return ResponseEntity.status(402).body(response);
     }
 
-    /**
-     * Handle unexpected/generic exceptions.
-     * 
-     * Catches all other exceptions that are not handled by specific handlers.
-     * Logs the full exception for debugging purposes.
-     * 
-     * HTTP Status: 500 Internal Server Error
-     * 
-     * @param ex the unexpected Exception
-     * @param request the current web request
-     * @return ResponseEntity with generic error details
-     */
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleEmailAlreadyExists(
+            EmailAlreadyExistsException ex,
+            WebRequest request) {
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.CONFLICT.value());
+        response.put("error", "Conflict");
+        response.put("message", ex.getMessage());
+        response.put("path", request.getDescription(false).replace("uri=", ""));
+
+        log.warn("Registration conflict: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler({BadCredentialsException.class, AuthenticationException.class})
+    public ResponseEntity<Map<String, Object>> handleBadCredentials(
+            AuthenticationException ex,
+            WebRequest request) {
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.UNAUTHORIZED.value());
+        response.put("error", "Unauthorized");
+        response.put("message", "Invalid email or password");
+        response.put("path", request.getDescription(false).replace("uri=", ""));
+
+        log.warn("Authentication failure: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidToken(
+            InvalidTokenException ex,
+            WebRequest request) {
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.UNAUTHORIZED.value());
+        response.put("error", "Invalid Token");
+        response.put("message", ex.getMessage());
+        response.put("path", request.getDescription(false).replace("uri=", ""));
+
+        log.warn("Invalid token: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public void handleAccessDenied(AccessDeniedException ex) throws AccessDeniedException {
+        throw ex;
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(
             Exception ex,
