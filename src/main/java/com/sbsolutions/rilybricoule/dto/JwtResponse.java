@@ -5,17 +5,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ClientDTO {
-    private Long id;
+public class JwtResponse {
+
+    private String accessToken;
+    private String email;
     private String firstName;
     private String lastName;
-    private String email;
-    private String phone;
-    private String address;
-    private Double latitude;
-    private Double longitude;
+    private List<String> roles;
 }
