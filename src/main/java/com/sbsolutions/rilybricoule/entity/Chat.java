@@ -44,8 +44,7 @@ public class Chat {
     @Column(nullable = false)
     private boolean active = true;
 
-    // Messages du chat
-    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Message> messages = new ArrayList<>();
 
 

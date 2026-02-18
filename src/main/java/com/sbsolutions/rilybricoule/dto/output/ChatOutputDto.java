@@ -12,15 +12,10 @@ import java.util.List;
 @Builder
 public class ChatOutputDto {
 
-
-
+    private Long chatId;
     private String clientName;
     private String prestataireName;
-    private LocalDateTime createdAt;     // date de création du chat
-
-    private LocalDateTime lastMessageAt; // date du dernier message
-    private boolean active;              // chat actif ou non
-    private List<MessageOutputDto> messages; // liste des messages
+    private LocalDateTime createdAt;
 }
 
 

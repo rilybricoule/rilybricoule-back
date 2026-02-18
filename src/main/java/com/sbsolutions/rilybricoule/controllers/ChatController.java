@@ -39,26 +39,30 @@ public class ChatController {
             @ApiResponse(responseCode = "400", description = "Invalid input")
     })
     @PostMapping("/start")
-    public ResponseEntity<ChatOutputDto> startChat(
-            @RequestBody ChatInputDto dto
-    ) {
+    public ResponseEntity<ChatOutputDto> startChat(@RequestBody ChatInputDto dto) {
         // Build minimal entity references from IDs
-        User sender = new User();
-        sender.setId(dto.getSenderId());
+        Chat chat = chatService.startOrGetChat(dto.getSenderId(), dto.getReceiverId(), dto.getReservationId());
 
-        User receiver = new User();
-        receiver.setId(dto.getReceiverId());
+        // Map messages
+        List<MessageOutputDto> messageDtos = chat.getMessages().stream()
+                .sorted((m1, m2) -> m1.getCreatedAt().compareTo(m2.getCreatedAt()))
+                .map(msg -> MessageOutputDto.builder()
+                        .id(msg.getId())
+                        .senderName(msg.getSender().getFirstName())
+                        .content(msg.getContent())
+                        .createdAt(msg.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
 
-        Reservation reservation = new Reservation();
-        reservation.setId(dto.getReservationId());
 
-        Chat chat = chatService.startOrGetChat(sender.getId(), receiver.getId(), reservation.getId());
 
+
+        // Build output
         ChatOutputDto output = ChatOutputDto.builder()
+                .chatId(chat.getId())
                 .clientName(chat.getClient().getFirstName())
                 .prestataireName(chat.getPrestataire().getFirstName())
                 .createdAt(chat.getCreatedAt())
-                .active(chat.isActive())
                 .build();
 
         return ResponseEntity.ok(output);

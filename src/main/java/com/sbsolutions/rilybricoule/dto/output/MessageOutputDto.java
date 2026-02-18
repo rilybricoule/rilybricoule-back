@@ -22,10 +22,15 @@ public class MessageOutputDto {
 
     private String senderName;
 
+    private LocalDateTime createdAt;
+
 
     private String imageUrl;
 
-    private LocalDateTime sentAt;
+
 
     private boolean read;
+
+
+    private LocalDateTime ReadAt;
 }

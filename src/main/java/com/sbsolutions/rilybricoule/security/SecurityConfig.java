@@ -15,10 +15,11 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable()) // Disable CSRF for API testing
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/ws/**").permitAll()  // WebSocket handshake
                         .anyRequest().permitAll()  // Allow all endpoints
                 )
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // No sessions
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) // Sessions for WebSocket
                 );
 
         return http.build();

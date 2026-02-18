@@ -8,7 +8,7 @@ import com.sbsolutions.rilybricoule.repository.NotificationRepository;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,6 +19,7 @@ public class NotificationService implements INotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final NotificationMapper notificationMapper;
+    private final SimpMessagingTemplate messagingTemplate;
 
     // Notify a new message
     @Override
@@ -36,6 +37,11 @@ public class NotificationService implements INotificationService {
     }
 
 
+    private void pushNotificationToUser(Long userId, NotificationOutputDto dto) {
+        messagingTemplate.convertAndSend("/topic/notifications/" + userId, dto);
+    }
+
+
     @Override
     public NotificationOutputDto notifyReservation(Client client, Reservation reservation) {
         // Create DTO instance
@@ -50,8 +56,9 @@ public class NotificationService implements INotificationService {
         Notification notification = notificationMapper.toEntity(inputDto, reservation.getPrestataire());
         Notification saved = notificationRepository.save(notification);
 
-        // Return DTO for frontend
-        return notificationMapper.toDto(saved);
+        NotificationOutputDto dto = notificationMapper.toDto(saved);
+        pushNotificationToUser(reservation.getPrestataire().getId(), dto);
+        return dto;
     }
 
 
@@ -71,7 +78,12 @@ public class NotificationService implements INotificationService {
         Notification saved = notificationRepository.save(notification);
 
         // Map entity -> output DTO
-        return notificationMapper.toDto(saved);
+
+        NotificationOutputDto dto = notificationMapper.toDto(saved);
+        pushNotificationToUser(receiver.getId(), dto);
+        return dto;
+
+
     }
 
     // Get all notifications for a user

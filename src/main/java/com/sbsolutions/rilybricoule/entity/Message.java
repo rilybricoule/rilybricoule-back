@@ -28,7 +28,6 @@ public class Message {
     @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
 
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "receiver_id", nullable = false)
     private User receiver;
@@ -37,10 +36,10 @@ public class Message {
     private String content;
 
     @Column
-    private String imageUrl;
+    private LocalDateTime readAt;
 
-    @Column(nullable = false)
-    private LocalDateTime sentAt;
+    @Column
+    private String imageUrl;
 
     @Column(nullable = false)
     private boolean read = false;
@@ -49,15 +48,26 @@ public class Message {
     @Column(nullable = false)
     private MessageType messageType;
 
-
-
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    // ✅ NEW — when message was edited
+    @Column
+    private LocalDateTime editedAt;
+
+    // ✅ OPTIONAL — soft delete support
+    @Column(nullable = false)
+    private boolean deleted = false;
+
+    @Column
+    private LocalDateTime deletedAt;
+
+    @Column
+    private LocalDateTime archivedAt;
+
 
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();
     }
-
-
 }
