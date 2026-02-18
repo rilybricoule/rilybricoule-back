@@ -41,6 +41,7 @@ public class SecurityConfig {
                         // ──── Public endpoints ────
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
 
                         // ──── Client endpoints ────
                         // Clients can read their own profile; ADMIN can manage all
