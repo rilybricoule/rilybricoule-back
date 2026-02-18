@@ -11,7 +11,9 @@ import com.sbsolutions.rilybricoule.repository.ChatRepository;
 import com.sbsolutions.rilybricoule.repository.MessageRepository;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,8 +28,9 @@ public class MessageService implements IMessageService {
     private final UserRepository userRepository;
     private final MessageMapper messageMapper;
     private final INotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    // ------------------- SEND MESSAGE -------------------
+
     @Override
     public MessageOutputDto sendMessage(Long chatId, Long senderId, String content) {
         System.out.println("chatId = " + chatId);
@@ -38,7 +41,7 @@ public class MessageService implements IMessageService {
             throw new IllegalStateException("Chat is closed");
         }
 
-        // Save message using senderId
+
         MessageInputDto inputDto = new MessageInputDto();
         inputDto.setChatId(chatId);
         inputDto.setSenderId(senderId);
@@ -49,8 +52,61 @@ public class MessageService implements IMessageService {
         return saveMessage(chatId, senderId, inputDto);
     }
 
+    @Override
+    @Transactional
+    public void deleteMessage(Long messageId, Long userId) {
+
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+
+        // 🔒 Security check — only sender can delete
+        if (!message.getSender().getId().equals(userId)) {
+            throw new RuntimeException("You are not allowed to delete this message");
+        }
+
+        // If already deleted, do nothing
+        if (message.isDeleted()) {
+            return;
+        }
+
+        message.setDeleted(true);
+        message.setDeletedAt(LocalDateTime.now());
+
+        messageRepository.save(message);
+    }
+
+    @Override
+    @Transactional
+    public MessageOutputDto editMessage(Long messageId, Long userId, String newContent) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+
+        if (!message.getSender().getId().equals(userId)) {
+            throw new RuntimeException("You are not allowed to edit this message");
+        }
+
+        if (message.isDeleted()) {
+            throw new IllegalStateException("Cannot edit a deleted message");
+        }
+
+        message.setContent(newContent);
+        message.setEditedAt(LocalDateTime.now());
+        Message saved = messageRepository.save(message);
+
+        MessageOutputDto dto = messageMapper.toDto(saved);
+        Long chatId = saved.getChat().getId();
+        messagingTemplate.convertAndSend("/topic/chat/" + chatId, dto);
+
+        return dto;
+
+
+
+
+    }
+
     // ------------------- SAVE MESSAGE -------------------
     @Override
+    @Transactional
     public MessageOutputDto saveMessage(Long chatId, Long senderId, MessageInputDto inputDto) {
         // Fetch the chat by ID
         Chat chat = chatRepository.findById(chatId)
@@ -69,7 +125,6 @@ public class MessageService implements IMessageService {
                 .sender(sender)
                 .receiver(receiver)
                 .content(inputDto.getContent())
-                .sentAt(LocalDateTime.now())
                 .read(false)
                 .messageType(MessageType.TEXT)
                 .build();
@@ -77,15 +132,33 @@ public class MessageService implements IMessageService {
         // Save the message
         Message saved = messageRepository.save(message);
         notificationService.notifyNewMessage(sender, receiver, saved);
-        // Map to DTO and return
-        return messageMapper.toDto(saved);
+
+        // Push to WebSocket so subscribers get the message in real time
+        MessageOutputDto dto = messageMapper.toDto(saved);
+        messagingTemplate.convertAndSend("/topic/chat/" + chatId, dto);
+
+        return dto;
     }
 
+    @Transactional
+    public void markAsRead(Long chatId, Long receiverId) {
+        messageRepository.markMessagesAsRead(chatId, receiverId);
+    }
+    @Override
+    public long getUnreadMessageCount(Long userId) {
+        return messageRepository.countUnreadByReceiverId(userId);
+    }
+
+
+    @Override
+    public long getUnreadMessageCountForChat(Long chatId, Long userId) {
+        return messageRepository.countUnreadByChatIdAndReceiverId(chatId, userId);
+    }
 
     // ------------------- GET MESSAGES BY CHAT -------------------
     @Override
     public List<MessageOutputDto> getMessagesByChatId(Long chatId) {
-        return messageRepository.findByChatIdOrderByCreatedAtAsc(chatId).stream()
+        return messageRepository.findActiveByChatIdOrderByCreatedAtAsc(chatId).stream()
                 .map(messageMapper::toDto)
                 .collect(Collectors.toList());
     }

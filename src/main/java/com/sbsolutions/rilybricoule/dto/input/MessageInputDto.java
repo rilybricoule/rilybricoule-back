@@ -24,6 +24,7 @@ public class MessageInputDto {
 
     private String imageUrl;
 
+
     private LocalDateTime sentAt;
 
     private MessageType messageType;// optional

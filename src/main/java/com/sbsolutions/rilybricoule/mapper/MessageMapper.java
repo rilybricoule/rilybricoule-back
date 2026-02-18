@@ -20,7 +20,6 @@ public class MessageMapper {
                 .sender(sender)
                 .receiver(receiver)
                 .imageUrl(dto.getImageUrl())
-                .sentAt(dto.getSentAt() != null ? dto.getSentAt() : LocalDateTime.now())
                 .read(false)
                 .build();
     }
@@ -36,7 +35,6 @@ public class MessageMapper {
                 .receiverId(message.getReceiver().getId())
                 .content(message.getContent())
                 .imageUrl(message.getImageUrl())
-                .sentAt(message.getSentAt())
                 .read(message.isRead())
                 .build();
     }
