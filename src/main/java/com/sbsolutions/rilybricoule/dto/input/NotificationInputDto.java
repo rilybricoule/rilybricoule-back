@@ -14,7 +14,7 @@ public class NotificationInputDto {
 
     private String contenu;
     private NotificationType type;      // optional if backend decides it
-    private Long prestataireId;         // destinataire
+    private Long ReceiverId;         // destinataire
     private LocalDateTime date;         // optionnel : date d'envoi
 }
 
