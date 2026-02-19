@@ -36,6 +36,7 @@ public class NotificationMapper {
         dto.setDate(notification.getDate());
         dto.setVu(notification.isVu());
         if (notification.getReceiver() != null) {
+            dto.setReceiverId(notification.getReceiver().getId());
             dto.setReceiverName(
                     notification.getReceiver().getFirstName() + " " +
                     notification.getReceiver().getLastName()
