@@ -31,7 +31,9 @@ public class ReservationService {
     private final CouponRepository couponRepository;
     private final CouponService couponService;
     private final PaymentService paymentService;
-    
+    private final INotificationService notificationService;
+
+
     /**
      * Create a new reservation with optional coupon application.
      * Business rules:
@@ -92,7 +94,7 @@ public class ReservationService {
         reservation.setTotalPrice(calculateTotalPrice(prestataire, reservation.getDiscountAmount()));
         
         Reservation savedReservation = reservationRepository.save(reservation);
-        
+        notificationService.notifyReservation(client, savedReservation);
         return ReservationResponse.fromEntity(savedReservation);
     }
 
@@ -164,6 +166,7 @@ public class ReservationService {
         if (paymentResp != null && paymentResp.isSuccess()) {
             saved.setStatus(Reservation.ReservationStatus.CONFIRMED);
             Reservation confirmed = reservationRepository.save(saved);
+            notificationService.notifyReservation(client, confirmed);
             return ReservationResponse.fromEntity(confirmed);
         } else {
             throw new com.sbsolutions.rilybricoule.exceptions.PaymentFailedException("Payment failed");

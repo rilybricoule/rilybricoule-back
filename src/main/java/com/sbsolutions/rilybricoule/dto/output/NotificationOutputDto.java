@@ -14,6 +14,8 @@ public class NotificationOutputDto {
     private String contenu;          // texte de la notification
     private LocalDateTime date;      // date de création
     private NotificationType type;
+    private Long id;
+    private Long prestataireId;
 
 
 }
