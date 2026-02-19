@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -22,6 +24,7 @@ public class PrestaireController {
     private final PrestaireRepository prestaireRepository;
     
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PrestaireDTO> createPrestataire(@RequestBody PrestaireDTO request) {
         Prestataire prestataire = Prestataire.builder()
             .name(request.getName())
@@ -36,6 +39,7 @@ public class PrestaireController {
     }
     
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<?> getPrestataire(@PathVariable Long id) {
         Optional<Prestataire> prestataire = prestaireRepository.findById(id);
         if (prestataire.isEmpty()) {
@@ -45,6 +49,7 @@ public class PrestaireController {
     }
     
     @GetMapping
+    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<List<PrestaireDTO>> getAllPrestataires() {
         List<PrestaireDTO> prestataires = prestaireRepository.findAll()
             .stream()
@@ -54,6 +59,7 @@ public class PrestaireController {
     }
     
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updatePrestataire(@PathVariable Long id, @RequestBody PrestaireDTO request) {
         Optional<Prestataire> prestaireOpt = prestaireRepository.findById(id);
         if (prestaireOpt.isEmpty()) {
@@ -72,6 +78,7 @@ public class PrestaireController {
     }
     
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deletePrestataire(@PathVariable Long id) {
         if (!prestaireRepository.existsById(id)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Prestataire not found");

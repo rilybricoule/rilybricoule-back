@@ -1,26 +1,39 @@
 package com.sbsolutions.rilybricoule.services;
 
+import com.sbsolutions.rilybricoule.dto.input.MessageInputDto;
+import com.sbsolutions.rilybricoule.dto.output.MessageOutputDto;
 import com.sbsolutions.rilybricoule.entity.Chat;
 import com.sbsolutions.rilybricoule.entity.Message;
+import com.sbsolutions.rilybricoule.entity.MessageType;
 import com.sbsolutions.rilybricoule.entity.User;
+import com.sbsolutions.rilybricoule.mapper.MessageMapper;
 import com.sbsolutions.rilybricoule.repository.ChatRepository;
 import com.sbsolutions.rilybricoule.repository.MessageRepository;
+import com.sbsolutions.rilybricoule.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class MessageService implements IMessageService{
+public class MessageService implements IMessageService {
 
     private final ChatRepository chatRepository;
     private final MessageRepository messageRepository;
+    private final UserRepository userRepository;
+    private final MessageMapper messageMapper;
+    private final INotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
+
 
     @Override
-    public Message sendMessage(Long chatId, User sender, String content) {
-
+    public MessageOutputDto sendMessage(Long chatId, Long senderId, String content) {
+        System.out.println("chatId = " + chatId);
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new RuntimeException("Chat not found"));
 
@@ -28,31 +41,125 @@ public class MessageService implements IMessageService{
             throw new IllegalStateException("Chat is closed");
         }
 
-        return saveMessage(chat, sender, content);
+
+        MessageInputDto inputDto = new MessageInputDto();
+        inputDto.setChatId(chatId);
+        inputDto.setSenderId(senderId);
+        inputDto.setContent(content);
+        inputDto.setSentAt(LocalDateTime.now());
+
+
+        return saveMessage(chatId, senderId, inputDto);
     }
 
+    @Override
+    @Transactional
+    public void deleteMessage(Long messageId, Long userId) {
 
-    public Message saveMessage(Chat chat, User sender, String content) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
 
+        // 🔒 Security check — only sender can delete
+        if (!message.getSender().getId().equals(userId)) {
+            throw new RuntimeException("You are not allowed to delete this message");
+        }
+
+        // If already deleted, do nothing
+        if (message.isDeleted()) {
+            return;
+        }
+
+        message.setDeleted(true);
+        message.setDeletedAt(LocalDateTime.now());
+
+        messageRepository.save(message);
+    }
+
+    @Override
+    @Transactional
+    public MessageOutputDto editMessage(Long messageId, Long userId, String newContent) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+
+        if (!message.getSender().getId().equals(userId)) {
+            throw new RuntimeException("You are not allowed to edit this message");
+        }
+
+        if (message.isDeleted()) {
+            throw new IllegalStateException("Cannot edit a deleted message");
+        }
+
+        message.setContent(newContent);
+        message.setEditedAt(LocalDateTime.now());
+        Message saved = messageRepository.save(message);
+
+        MessageOutputDto dto = messageMapper.toDto(saved);
+        Long chatId = saved.getChat().getId();
+        messagingTemplate.convertAndSend("/topic/chat/" + chatId, dto);
+
+        return dto;
+
+
+
+
+    }
+
+    // ------------------- SAVE MESSAGE -------------------
+    @Override
+    @Transactional
+    public MessageOutputDto saveMessage(Long chatId, Long senderId, MessageInputDto inputDto) {
+        // Fetch the chat by ID
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new RuntimeException("Chat not found with id " + chatId));
+
+        // Fetch the sender
+        User sender = userRepository.findById(senderId)
+                .orElseThrow(() -> new RuntimeException("Sender not found with id " + senderId));
+
+        // Determine the receiver using the helper in Chat entity
+        User receiver = chat.getOtherUser(sender);
+
+        // Build the message entity
         Message message = Message.builder()
                 .chat(chat)
                 .sender(sender)
-                .content(content)
-                .sentAt(LocalDateTime.now())
+                .receiver(receiver)
+                .content(inputDto.getContent())
+                .read(false)
+                .messageType(MessageType.TEXT)
                 .build();
 
-        return messageRepository.save(message);
+        // Save the message
+        Message saved = messageRepository.save(message);
+        notificationService.notifyNewMessage(sender, receiver, saved);
+
+        // Push to WebSocket so subscribers get the message in real time
+        MessageOutputDto dto = messageMapper.toDto(saved);
+        messagingTemplate.convertAndSend("/topic/chat/" + chatId, dto);
+
+        return dto;
+    }
+
+    @Transactional
+    public void markAsRead(Long chatId, Long receiverId) {
+        messageRepository.markMessagesAsRead(chatId, receiverId);
+    }
+    @Override
+    public long getUnreadMessageCount(Long userId) {
+        return messageRepository.countUnreadByReceiverId(userId);
     }
 
 
     @Override
-    public List<Message> getMessagesByChatId(Long chatId) {
-        return messageRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+    public long getUnreadMessageCountForChat(Long chatId, Long userId) {
+        return messageRepository.countUnreadByChatIdAndReceiverId(chatId, userId);
+    }
+
+    // ------------------- GET MESSAGES BY CHAT -------------------
+    @Override
+    public List<MessageOutputDto> getMessagesByChatId(Long chatId) {
+        return messageRepository.findActiveByChatIdOrderByCreatedAtAsc(chatId).stream()
+                .map(messageMapper::toDto)
+                .collect(Collectors.toList());
     }
 }
-
-
-
-
-
-

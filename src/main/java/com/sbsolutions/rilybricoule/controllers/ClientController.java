@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -22,6 +24,7 @@ public class ClientController {
     private final GeocodingService geocodingService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ClientDTO> createClient(@RequestBody ClientDTO request) {
         Client client = Client.builder()
             .firstName(request.getFirstName())
@@ -37,6 +40,7 @@ public class ClientController {
     }
     
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
     public ResponseEntity<?> getClient(@PathVariable Long id) {
         Optional<Client> client = clientRepository.findById(id);
         if (client.isEmpty()) {
@@ -46,6 +50,7 @@ public class ClientController {
     }
     
     @GetMapping
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
     public ResponseEntity<List<ClientDTO>> getAllClients() {
         List<ClientDTO> clients = clientRepository.findAll()
             .stream()
@@ -55,6 +60,7 @@ public class ClientController {
     }
     
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateClient(@PathVariable Long id, @RequestBody ClientDTO request) {
         Optional<Client> clientOpt = clientRepository.findById(id);
         if (clientOpt.isEmpty()) {
@@ -73,6 +79,7 @@ public class ClientController {
     }
     
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteClient(@PathVariable Long id) {
         if (!clientRepository.existsById(id)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Client not found");

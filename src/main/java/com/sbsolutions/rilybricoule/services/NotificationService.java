@@ -1,26 +1,31 @@
 package com.sbsolutions.rilybricoule.services;
 
 import com.sbsolutions.rilybricoule.dto.input.NotificationInputDto;
-import com.sbsolutions.rilybricoule.dto.PrestaireDTO;
+import com.sbsolutions.rilybricoule.dto.output.NotificationOutputDto;
 import com.sbsolutions.rilybricoule.entity.*;
+import com.sbsolutions.rilybricoule.mapper.NotificationMapper;
 import com.sbsolutions.rilybricoule.repository.NotificationRepository;
 import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import com.sbsolutions.rilybricoule.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
 public class NotificationService implements INotificationService {
 
     private final NotificationRepository notificationRepository;
+
     private final RestTemplate restTemplate = new RestTemplate();
     private final PrestaireRepository prestaireRepository;
     private final JavaMailSender mailSender;
@@ -42,76 +47,80 @@ public class NotificationService implements INotificationService {
     }
 
 
-    // ----------------------------
-    // Implémentation de INotificationService
-    // ----------------------------
+    private final UserRepository userRepository;
+    private final NotificationMapper notificationMapper;
+    private final SimpMessagingTemplate messagingTemplate;
 
+
+    // Notify a new message
     @Override
-    public void notifyNewMessage(Client sender, Prestataire receiver, Message message) {
-        String content = sender.getFirstName() + " " + sender.getLastName() +
-                " sent a message: " + message.getContent();
+    public NotificationOutputDto notifyNewMessage(User sender, User receiver, Message message) {
+        String preview = message.getContent().length() > 30
+                ? message.getContent().substring(0, 30) + "..."
+                : message.getContent();
 
-        Notification notification = Notification.builder()
-                .contenu(content)
-                .date(LocalDateTime.now())
-                .type(NotificationType.MESSAGE)
-                .prestataire(receiver)   // stocke l'entité Prestataire
-                .build();
+        NotificationInputDto inputDto = new NotificationInputDto();
+        inputDto.setContenu(sender.getFirstName() + " " + sender.getLastName() + " sent you a message: " + preview);
+        inputDto.setType(NotificationType.MESSAGE);
+        inputDto.setPrestataireId(receiver.getId());
 
-        notificationRepository.save(notification);
+        return createNotification(inputDto);
     }
 
+
+    private void pushNotificationToUser(Long userId, NotificationOutputDto dto) {
+        messagingTemplate.convertAndSend("/topic/notifications/" + userId, dto);
+    }
+
+
     @Override
-    public void notifyReservation(Client client, Reservation reservation) {
-        String content =
-                "Nouvelle réservation (" + reservation.getStatus() + ")\n" +
-                        "Client: " + client.getFirstName() + " " + client.getLastName() + "\n" +
-                        "Date: " + reservation.getReservationDate() + " " + reservation.getReservationTime() + "\n" +
-                        "Total: " + reservation.getTotalPrice() + "\n" +
-                        "Reservation ID: " + reservation.getId();
+    public NotificationOutputDto notifyReservation(Client client, Reservation reservation) {
+        // Create DTO instance
+        NotificationInputDto inputDto = new NotificationInputDto();
+        inputDto.setContenu("New reservation from " + client.getFirstName() + " " + client.getLastName()
+                + " for reservation ID: " + reservation.getId());
+        inputDto.setType(NotificationType.RESERVATION);
+        inputDto.setPrestataireId(reservation.getPrestataire().getId());
+        inputDto.setDate(null);
 
-        Notification notification = Notification.builder()
-                .contenu(content)
-                .date(LocalDateTime.now())
-                .type(NotificationType.RESERVATION)
-                .prestataire(reservation.getPrestataire())
-                .build();
+        // Convert DTO -> entity and save
+        Notification notification = notificationMapper.toEntity(inputDto, reservation.getPrestataire());
+        Notification saved = notificationRepository.save(notification);
 
-        notificationRepository.save(notification);
-
-        sendWebhook("RESERVATION", notification, reservation, client);
+        NotificationOutputDto dto = notificationMapper.toDto(saved);
+        pushNotificationToUser(reservation.getPrestataire().getId(), dto);
+        sendWebhook("RESERVATION", saved, reservation, client);
         if (reservation.getStatus() == Reservation.ReservationStatus.CONFIRMED) {
-            sendEmail(
-                    reservation.getPrestataire().getEmail(),
-                    "Réservation confirmée",
-                    content
-            );
+              sendEmail(
+                      reservation.getPrestataire().getEmail(),
+                      "Réservation confirmée",
+                      inputDto.getContenu()
+              );
         }
+        return dto;
     }
 
-    // ----------------------------
-    // Méthodes pour controller avec DTO
-    // ----------------------------
-
-    public Notification createNotification(NotificationInputDto dto) {
-        // Ici on peut soit récupérer Prestataire via ID, soit juste stocker ID dans l'entité
-        if (dto.getPrestataireId() == null) {
-            throw new IllegalArgumentException("prestataireId is required");
-        }
-
-        Prestataire prestataire = prestaireRepository.findById(dto.getPrestataireId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Prestataire not found with id: " + dto.getPrestataireId()
+    // Create a notification from input DTO
+    @Override
+    public NotificationOutputDto createNotification(NotificationInputDto inputDto) {
+        // Use the inputDto instance, not the class
+        User receiver = userRepository.findById(inputDto.getPrestataireId())
+                .orElseThrow(() -> new RuntimeException(
+                        "Receiver not found with id " + inputDto.getPrestataireId()
                 ));
 
-        Notification notification = Notification.builder()
-                .contenu(dto.getContenu())
-                .date(dto.getDate() != null ? dto.getDate() : LocalDateTime.now())
-                .type(dto.getType() != null ? dto.getType() : NotificationType.MESSAGE)
-                .prestataire(prestataire)
-                .build();
+        // Map DTO -> entity
+        Notification notification = notificationMapper.toEntity(inputDto, receiver);
 
-        return notificationRepository.save(notification);
+        // Save entity
+        Notification saved = notificationRepository.save(notification);
+
+        // Map entity -> output DTO
+
+        NotificationOutputDto dto = notificationMapper.toDto(saved);
+        pushNotificationToUser(receiver.getId(), dto);
+        return dto;
+
     }
 
     private void sendWebhook(String event, Notification notification, Reservation reservation, Client client) {
@@ -151,7 +160,34 @@ public class NotificationService implements INotificationService {
         } catch (Exception e) {e.printStackTrace();}
     }
 
+    // Get all notifications for a user
+    @Override
+    public List<NotificationOutputDto> getNotificationsForUser(Long userId) {
+        return notificationRepository.findByReceiverIdOrderByDateDesc(userId).stream()
+                .map(notificationMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    // Mark notification as read
+    @Override
+    public NotificationOutputDto markAsRead(Long notificationId) {
+        Notification updated = notificationRepository.findById(notificationId)
+                .map(notification -> {
+                    notification.setVu(true);
+                    return notificationRepository.save(notification);
+                })
+                .orElseThrow(() -> new RuntimeException("Notification not found with id " + notificationId));
+
+        return notificationMapper.toDto(updated);
+    }
 
 
+    @Override
+    public void deleteAllNotificationsForUser(Long userId) {
+        List<Notification> notifications = notificationRepository.findByReceiverIdOrderByDateDesc(userId);
+        if (!notifications.isEmpty()) {
+            notificationRepository.deleteAll(notifications);
+        }
+    }
 
 }

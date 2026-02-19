@@ -1,15 +1,26 @@
 package com.sbsolutions.rilybricoule.services;
 
-
-import com.sbsolutions.rilybricoule.entity.Chat;
-import com.sbsolutions.rilybricoule.entity.Message;
-import com.sbsolutions.rilybricoule.entity.User;
+import com.sbsolutions.rilybricoule.dto.input.MessageInputDto;
+import com.sbsolutions.rilybricoule.dto.output.MessageOutputDto;
 
 import java.util.List;
 
 public interface IMessageService {
 
-    List<Message> getMessagesByChatId(Long chatId);
-    Message sendMessage(Long chatId, User sender, String content);
-     Message saveMessage(Chat chat, User sender, String content);
+    MessageOutputDto sendMessage(Long chatId, Long senderId, String content);
+
+    MessageOutputDto saveMessage(Long chatId, Long senderId, MessageInputDto inputDto);
+
+    MessageOutputDto editMessage(Long messageId, Long userId, String newContent);
+
+    void deleteMessage(Long messageId, Long userId);
+
+    List<MessageOutputDto> getMessagesByChatId(Long chatId);
+
+    void markAsRead(Long chatId, Long receiverId);
+
+
+    long getUnreadMessageCount(Long userId);
+
+    long getUnreadMessageCountForChat(Long chatId, Long userId);
 }
