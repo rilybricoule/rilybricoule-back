@@ -5,7 +5,6 @@ import com.sbsolutions.rilybricoule.dto.output.NotificationOutputDto;
 import com.sbsolutions.rilybricoule.entity.*;
 import com.sbsolutions.rilybricoule.mapper.NotificationMapper;
 import com.sbsolutions.rilybricoule.repository.NotificationRepository;
-import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
@@ -27,7 +26,6 @@ public class NotificationService implements INotificationService {
     private final NotificationRepository notificationRepository;
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final PrestaireRepository prestaireRepository;
     private final JavaMailSender mailSender;
 
     @Value("${app.notifications.webhook.enabled:false}")
@@ -41,10 +39,6 @@ public class NotificationService implements INotificationService {
 
     @Value("${app.notifications.email.from:}")
     private String emailFrom;
-
-    public List<Notification> getPrestataireNotifications(Long prestataireId) {
-        return notificationRepository.findByPrestataire_IdOrderByDateDesc(prestataireId);
-    }
 
 
     private final UserRepository userRepository;
@@ -62,7 +56,7 @@ public class NotificationService implements INotificationService {
         NotificationInputDto inputDto = new NotificationInputDto();
         inputDto.setContenu(sender.getFirstName() + " " + sender.getLastName() + " sent you a message: " + preview);
         inputDto.setType(NotificationType.MESSAGE);
-        inputDto.setPrestataireId(receiver.getId());
+        inputDto.setReceiverId(receiver.getId());
 
         return createNotification(inputDto);
     }
@@ -80,7 +74,7 @@ public class NotificationService implements INotificationService {
         inputDto.setContenu("New reservation from " + client.getFirstName() + " " + client.getLastName()
                 + " for reservation ID: " + reservation.getId());
         inputDto.setType(NotificationType.RESERVATION);
-        inputDto.setPrestataireId(reservation.getPrestataire().getId());
+        inputDto.setReceiverId(reservation.getPrestataire().getId());
         inputDto.setDate(null);
 
         // Convert DTO -> entity and save
@@ -104,9 +98,9 @@ public class NotificationService implements INotificationService {
     @Override
     public NotificationOutputDto createNotification(NotificationInputDto inputDto) {
         // Use the inputDto instance, not the class
-        User receiver = userRepository.findById(inputDto.getPrestataireId())
+        User receiver = userRepository.findById(inputDto.getReceiverId())
                 .orElseThrow(() -> new RuntimeException(
-                        "Receiver not found with id " + inputDto.getPrestataireId()
+                        "Receiver not found with id " + inputDto.getReceiverId()
                 ));
 
         // Map DTO -> entity
@@ -132,7 +126,7 @@ public class NotificationService implements INotificationService {
                     "event", event,
                     "notificationId", notification.getId(),
                     "content", notification.getContenu(),
-                    "date", notification.getDate().toString(),
+                    "date", notification.getDate() !=null ? notification.getDate().toString() : null,
                     "reservationId", reservation.getId(),
                     "clientId", client.getId(),
                     "prestataireId", reservation.getPrestataire().getId()
@@ -163,7 +157,7 @@ public class NotificationService implements INotificationService {
     // Get all notifications for a user
     @Override
     public List<NotificationOutputDto> getNotificationsForUser(Long userId) {
-        return notificationRepository.findByReceiverIdOrderByDateDesc(userId).stream()
+        return notificationRepository.findByReceiver_IdOrderByDateDesc(userId).stream()
                 .map(notificationMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -184,7 +178,7 @@ public class NotificationService implements INotificationService {
 
     @Override
     public void deleteAllNotificationsForUser(Long userId) {
-        List<Notification> notifications = notificationRepository.findByReceiverIdOrderByDateDesc(userId);
+        List<Notification> notifications = notificationRepository.findByReceiver_IdOrderByDateDesc(userId);
         if (!notifications.isEmpty()) {
             notificationRepository.deleteAll(notifications);
         }
