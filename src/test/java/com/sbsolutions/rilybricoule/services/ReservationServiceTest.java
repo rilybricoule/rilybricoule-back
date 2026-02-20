@@ -7,6 +7,7 @@ import com.sbsolutions.rilybricoule.repository.ClientRepository;
 import com.sbsolutions.rilybricoule.repository.CouponRepository;
 import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
 import com.sbsolutions.rilybricoule.repository.ReservationRepository;
+import com.sbsolutions.rilybricoule.services.INotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,9 @@ class ReservationServiceTest {
 
     @Mock
     private PaymentService paymentService;
+    
+    @Mock
+    private INotificationService notificationService;
 
     @InjectMocks
     private ReservationService reservationService;
@@ -102,6 +106,9 @@ class ReservationServiceTest {
                 .discountAmount(BigDecimal.ZERO)
                 .status(Reservation.ReservationStatus.PENDING_PAYMENT)
                 .build();
+        
+        lenient().when(notificationService.notifyReservation(any(Client.class), any(Reservation.class)))
+            .thenReturn(null);
     }
 
     // ===== SUCCESS CASES =====

@@ -2,11 +2,8 @@ package com.sbsolutions.rilybricoule.controllers;
 
 
 
-import com.sbsolutions.rilybricoule.dto.input.NotificationInputDto;
 import com.sbsolutions.rilybricoule.dto.output.NotificationOutputDto;
-import com.sbsolutions.rilybricoule.entity.Notification;
 import com.sbsolutions.rilybricoule.services.INotificationService;
-import com.sbsolutions.rilybricoule.services.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -14,17 +11,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
 @Tag(name = "Notifications", description = "APIs to manage notifications for users")
 public class NotificationController {
-
     private final INotificationService notificationService;
-
-
-
 
     // ✅ Get notifications for a user
     @GetMapping("/user/{userId}")

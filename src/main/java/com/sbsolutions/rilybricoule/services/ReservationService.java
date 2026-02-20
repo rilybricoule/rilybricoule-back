@@ -76,6 +76,7 @@ public class ReservationService {
     private final CouponRepository couponRepository;
     private final CouponService couponService;
     private final PaymentService paymentService;
+    private final INotificationService notificationService;
     private final PaymentHistoryRepository paymentHistoryRepository;
 
     /**
@@ -130,6 +131,8 @@ public class ReservationService {
         reservation.setTotalPrice(calculateTotalPrice(prestataire, reservation.getDiscountAmount()));
 
         Reservation savedReservation = reservationRepository.save(reservation);
+        notificationService.notifyReservation(client, savedReservation);
+
         return ReservationResponse.fromEntity(savedReservation);
     }
 
@@ -171,14 +174,17 @@ public class ReservationService {
         paymentRequest.setAmount(reservation.getTotalPrice());
         if (paymentRequest.getCurrency() == null) paymentRequest.setCurrency("EUR");
 
+
         // Process the payment
         PaymentResponseDTO paymentResponse = paymentService.processPayment(paymentRequest);
         
-        if (paymentResponse.isSuccess()) {
+        if (paymentResponse != null && paymentResponse.isSuccess()) {
             // Payment successful: update reservation to CONFIRMED
             reservation.setStatus(Reservation.ReservationStatus.CONFIRMED);
-            reservationRepository.save(reservation);
-            return ReservationResponse.fromEntity(reservation);
+            Reservation confirmed = reservationRepository.save(reservation);
+            notificationService.notifyReservation(reservation.getClient(), confirmed);
+            return ReservationResponse.fromEntity(confirmed);
+
         } else {
             throw new PaymentFailedException("Payment failed");
         }
