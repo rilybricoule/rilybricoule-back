@@ -4,6 +4,8 @@ import com.sbsolutions.rilybricoule.dto.PrestaireDTO;
 import com.sbsolutions.rilybricoule.entity.Prestataire;
 import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
 import com.sbsolutions.rilybricoule.services.GeocodingService;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +24,8 @@ public class PrestaireController {
 
     private final GeocodingService geocodingService;
     private final PrestaireRepository prestaireRepository;
-    
+
+    @CacheEvict(value = "nearbyPrestataires", allEntries = true)
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PrestaireDTO> createPrestataire(@RequestBody PrestaireDTO request) {
@@ -57,7 +60,8 @@ public class PrestaireController {
             .collect(Collectors.toList());
         return ResponseEntity.ok(prestataires);
     }
-    
+
+    @CacheEvict(value = "nearbyPrestataires", allEntries = true)
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updatePrestataire(@PathVariable Long id, @RequestBody PrestaireDTO request) {
@@ -76,7 +80,8 @@ public class PrestaireController {
         Prestataire updated = prestaireRepository.save(prestataire);
         return ResponseEntity.ok(toDTO(updated));
     }
-    
+
+    @CacheEvict(value = "nearbyPrestataires", allEntries = true)
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deletePrestataire(@PathVariable Long id) {
@@ -96,18 +101,28 @@ public class PrestaireController {
             }
         }
     }
+
+    @Cacheable(
+            value = "nearbyPrestataires",
+            key = "'r=10:lat=' + (T(java.lang.Math).round(#lat * 1000.0) / 1000.0) + ':lng=' + (T(java.lang.Math).round(#lng * 1000.0) / 1000.0)",
+            unless = "#result == null || #result.isEmpty()"
+    )
     @GetMapping("/nearby")
-    public ResponseEntity<List<PrestaireDTO>> getNearbyPrestataires(@RequestParam double lat, @RequestParam double lng) {
+    public List<PrestaireDTO>getNearbyPrestataires(@RequestParam double lat, @RequestParam double lng) {
+
         final double RADIUS_KM = 10;
+
         List<Long> ids = prestaireRepository.findNearbyIds(lat, lng, RADIUS_KM);
         List<Prestataire> prestataires = prestaireRepository.findAllById(ids);
+
         java.util.Map<Long, Integer> pos = new java.util.HashMap<>();
         for (int i = 0; i < ids.size(); i++) pos.put(ids.get(i), i);
+
         prestataires.sort(java.util.Comparator.comparingInt(p -> pos.getOrDefault(p.getId(), Integer.MAX_VALUE)));
-        List<PrestaireDTO> result = prestataires.stream()
+
+        return prestataires.stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(result);
 }
 
     private PrestaireDTO toDTO(Prestataire prestataire) {
