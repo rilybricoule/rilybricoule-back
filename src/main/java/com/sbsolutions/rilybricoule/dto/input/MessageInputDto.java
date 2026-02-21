@@ -20,12 +20,5 @@ public class MessageInputDto {
 
     private Long senderId;
 
-    private Long receiverId;
 
-    private String imageUrl;
-
-
-    private LocalDateTime sentAt;
-
-    private MessageType messageType;// optional
 }

@@ -99,8 +99,8 @@ public class MessageController {
     @GetMapping("/chats/{chatId}/unread-count")
     public ResponseEntity<Long> getUnreadCountForChat(
             @Parameter(description = "ID of the chat") @PathVariable Long chatId,
-            @RequestParam Long userId) {
-        return ResponseEntity.ok(messageService.getUnreadMessageCountForChat(chatId, userId));
+            @RequestParam Long receiverId) {
+        return ResponseEntity.ok(messageService.getUnreadMessageCountForChat(chatId, receiverId));
     }
     @Operation(summary = "Trigger archive now (for testing)",
             description = "Archives messages older than 6 months. Optional: use olderThanMinutes (e.g. 1) to archive messages older than that many minutes for easy testing.")
@@ -142,10 +142,10 @@ public class MessageController {
     @PatchMapping("/{messageId}")
     public ResponseEntity<MessageOutputDto> editMessage(
             @Parameter(description = "ID of the message to edit") @PathVariable Long messageId,
-            @RequestParam Long userId,
+            @RequestParam Long senderId,
             @RequestBody MessageInputDto dto
     ) {
-        MessageOutputDto output = messageService.editMessage(messageId, userId, dto.getContent());
+        MessageOutputDto output = messageService.editMessage(messageId, senderId, dto.getContent());
         return ResponseEntity.ok(output);
     }
 
@@ -160,9 +160,9 @@ public class MessageController {
     @DeleteMapping("/{messageId}")
     public ResponseEntity<Void> deleteMessage(
             @Parameter(description = "ID of the message to delete") @PathVariable Long messageId,
-            @RequestParam Long userId
+            @RequestParam Long senderId
     ) {
-        messageService.deleteMessage(messageId, userId);
+        messageService.deleteMessage(messageId, senderId);
         return ResponseEntity.ok().build();
     }
 }

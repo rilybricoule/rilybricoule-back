@@ -27,10 +27,10 @@ public class MessageOutputDto {
 
     private String imageUrl;
 
-
+    private String receiverName;
 
     private boolean read;
 
 
-    private LocalDateTime ReadAt;
+    private LocalDateTime readAt;
 }

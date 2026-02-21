@@ -46,7 +46,6 @@ public class MessageService implements IMessageService {
         inputDto.setChatId(chatId);
         inputDto.setSenderId(senderId);
         inputDto.setContent(content);
-        inputDto.setSentAt(LocalDateTime.now());
 
 
         return saveMessage(chatId, senderId, inputDto);
@@ -142,8 +141,20 @@ public class MessageService implements IMessageService {
 
     @Transactional
     public void markAsRead(Long chatId, Long receiverId) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Chat not found with id " + chatId));
+
+        Long clientId = chat.getClient().getId();
+        Long prestataireId = chat.getPrestataire().getId();
+
+        if (!receiverId.equals(clientId) && !receiverId.equals(prestataireId)) {
+            throw new IllegalArgumentException("Receiver does not belong to this chat");
+        }
+
         messageRepository.markMessagesAsRead(chatId, receiverId);
     }
+
+
     @Override
     public long getUnreadMessageCount(Long userId) {
         return messageRepository.countUnreadByReceiverId(userId);

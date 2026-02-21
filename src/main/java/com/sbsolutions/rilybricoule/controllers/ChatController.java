@@ -17,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Tag(name = "Chats", description = "Endpoints for managing chats and messages")
@@ -41,10 +43,12 @@ public class ChatController {
     @PostMapping("/start")
     public ResponseEntity<ChatOutputDto> startChat(@RequestBody ChatInputDto dto) {
         // Build minimal entity references from IDs
-        Chat chat = chatService.startOrGetChat(dto.getSenderId(), dto.getReceiverId(), dto.getReservationId());
+        Chat chat = chatService.startOrGetChat(dto.getClientId(), dto.getPrestataireId(), dto.getReservationId());
 
         // Map messages
-        List<MessageOutputDto> messageDtos = chat.getMessages().stream()
+        List<MessageOutputDto> messageDtos = Optional.ofNullable(chat.getMessages())
+                .orElse(Collections.emptyList())
+                .stream()
                 .sorted((m1, m2) -> m1.getCreatedAt().compareTo(m2.getCreatedAt()))
                 .map(msg -> MessageOutputDto.builder()
                         .id(msg.getId())
@@ -60,9 +64,17 @@ public class ChatController {
         // Build output
         ChatOutputDto output = ChatOutputDto.builder()
                 .chatId(chat.getId())
-                .clientName(chat.getClient().getFirstName())
-                .prestataireName(chat.getPrestataire().getFirstName())
+                .clientId(chat.getClient().getId())
+                .prestataireId(chat.getPrestataire().getId())
+                .clientFirstName(chat.getClient().getFirstName())
+                .clientLastName(chat.getClient().getLastName())
+                .prestataireFirstName(chat.getPrestataire().getFirstName())
+                .prestataireLastName(chat.getPrestataire().getLastName())
+                .reservationId(chat.getReservation() != null ? chat.getReservation().getId() : null)
                 .createdAt(chat.getCreatedAt())
+                .active(chat.isActive())
+                .lastMessageAt(chat.getLastMessageAt())
+                .messages(messageDtos)
                 .build();
 
         return ResponseEntity.ok(output);
