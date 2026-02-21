@@ -19,7 +19,6 @@ public class MessageMapper {
                 .content(dto.getContent())
                 .sender(sender)
                 .receiver(receiver)
-                .imageUrl(dto.getImageUrl())
                 .read(false)
                 .build();
     }
@@ -33,9 +32,12 @@ public class MessageMapper {
                 .senderId(message.getSender().getId())
                 .senderName(message.getSender().getFirstName() + " " + message.getSender().getLastName())
                 .receiverId(message.getReceiver().getId())
+                .receiverName(message.getReceiver().getFirstName() + " " + message.getReceiver().getLastName())
                 .content(message.getContent())
                 .imageUrl(message.getImageUrl())
                 .read(message.isRead())
+                .createdAt(message.getCreatedAt())
+                .readAt(message.getReadAt())
                 .build();
     }
 }

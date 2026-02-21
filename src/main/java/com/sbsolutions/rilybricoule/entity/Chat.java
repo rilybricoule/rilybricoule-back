@@ -28,12 +28,12 @@ public class Chat {
     // Client
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
-    private User client;
+    private Client client;
 
     // Prestataire
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "prestataire_id", nullable = false)
-    private User prestataire;
+    private Prestataire prestataire;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
