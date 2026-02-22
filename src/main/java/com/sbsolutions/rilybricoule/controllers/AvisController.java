@@ -6,6 +6,7 @@ import com.sbsolutions.rilybricoule.services.AvisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +24,7 @@ public class AvisController {
      * Enforces that only one review per reservation is allowed.
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
     public ResponseEntity<?> createAvis(
             @RequestParam Long reservationId,
             @RequestParam Integer rating,
@@ -41,6 +43,7 @@ public class AvisController {
      * Get a review by reservation ID.
      */
     @GetMapping("/reservation/{reservationId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAvisByReservation(@PathVariable Long reservationId) {
         var avis = avisService.findByReservationId(reservationId);
         if (avis.isEmpty()) {
@@ -54,6 +57,7 @@ public class AvisController {
      * Get all reviews for a prestataire.
      */
     @GetMapping("/prestataire/{prestaireId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<AvisDTO>> getAvisByPrestataire(@PathVariable Long prestaireId) {
         List<Avis> avisList = avisService.findByPrestataireId(prestaireId);
         List<AvisDTO> response = avisList.stream()
@@ -66,6 +70,7 @@ public class AvisController {
      * Get average rating for a prestataire.
      */
     @GetMapping("/prestataire/{prestaireId}/average-rating")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAverageRating(@PathVariable Long prestaireId) {
         Double averageRating = avisService.getAverageRating(prestaireId);
         if (averageRating == null) {

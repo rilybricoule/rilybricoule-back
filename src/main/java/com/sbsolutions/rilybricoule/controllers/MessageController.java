@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.web.bind.annotation.RequestBody;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,6 +34,7 @@ public class MessageController {
             @ApiResponse(responseCode = "400", description = "Invalid input")
     })
     @PostMapping("/send")
+    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<MessageOutputDto> sendMessage(
             @RequestBody
             MessageInputDto dto
@@ -52,6 +54,7 @@ public class MessageController {
             @ApiResponse(responseCode = "404", description = "Chat not found")
     })
     @GetMapping("/{chatId}")
+    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<List<MessageOutputDto>> getMessagesByChat(
             @Parameter(description = "ID of the chat to retrieve messages for") @PathVariable Long chatId
     ) {
@@ -68,6 +71,7 @@ public class MessageController {
             @ApiResponse(responseCode = "400", description = "Invalid input")
     })
     @PostMapping("/save")
+    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<MessageOutputDto> saveMessage(
             @RequestBody
             MessageInputDto dto

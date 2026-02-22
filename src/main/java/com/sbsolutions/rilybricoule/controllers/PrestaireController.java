@@ -39,7 +39,7 @@ public class PrestaireController {
     }
     
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'CLIENT', 'ADMIN')")
     public ResponseEntity<?> getPrestataire(@PathVariable Long id) {
         Optional<Prestataire> prestataire = prestaireRepository.findById(id);
         if (prestataire.isEmpty()) {
@@ -49,7 +49,7 @@ public class PrestaireController {
     }
     
     @GetMapping
-    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'CLIENT', 'ADMIN')")
     public ResponseEntity<List<PrestaireDTO>> getAllPrestataires() {
         List<PrestaireDTO> prestataires = prestaireRepository.findAll()
             .stream()
@@ -59,7 +59,7 @@ public class PrestaireController {
     }
     
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<?> updatePrestataire(@PathVariable Long id, @RequestBody PrestaireDTO request) {
         Optional<Prestataire> prestaireOpt = prestaireRepository.findById(id);
         if (prestaireOpt.isEmpty()) {
@@ -97,6 +97,7 @@ public class PrestaireController {
         }
     }
     @GetMapping("/nearby")
+    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<List<PrestaireDTO>> getNearbyPrestataires(@RequestParam double lat, @RequestParam double lng) {
         final double RADIUS_KM = 10;
         List<Long> ids = prestaireRepository.findNearbyIds(lat, lng, RADIUS_KM);

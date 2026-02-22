@@ -1,16 +1,20 @@
-package com.sbsolutions.rilybricoule.services;
+package com.sbsolutions.rilybricoule.security.application;
 
 import com.sbsolutions.rilybricoule.dto.JwtResponse;
 import com.sbsolutions.rilybricoule.dto.LoginRequest;
 import com.sbsolutions.rilybricoule.dto.RegisterRequest;
 import com.sbsolutions.rilybricoule.entity.*;
 import com.sbsolutions.rilybricoule.exceptions.EmailAlreadyExistsException;
-import com.sbsolutions.rilybricoule.exceptions.InvalidTokenException;
+import com.sbsolutions.rilybricoule.exceptions.RefreshTokenExpiredException;
+import com.sbsolutions.rilybricoule.exceptions.RefreshTokenNotFoundException;
 import com.sbsolutions.rilybricoule.repository.RoleRepository;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
-import com.sbsolutions.rilybricoule.security.JwtService;
+import com.sbsolutions.rilybricoule.security.domain.model.RefreshToken;
+import com.sbsolutions.rilybricoule.security.domain.port.in.AuthUseCase;
+import com.sbsolutions.rilybricoule.security.domain.port.out.AuditLogPort;
+import com.sbsolutions.rilybricoule.security.domain.port.out.RefreshTokenRepositoryPort;
+import com.sbsolutions.rilybricoule.security.domain.port.out.TokenProviderPort;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,24 +25,27 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
-public class AuthService {
+public class AuthApplicationService implements AuthUseCase {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final TokenProviderPort tokenProvider;
+    private final RefreshTokenRepositoryPort refreshTokenRepository;
+    private final AuditLogPort auditLog;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
 
+    @Override
     @Transactional
-    public JwtResponse register(RegisterRequest request) {
+    public JwtResponse register(RegisterRequest request, String ipAddress, String userAgent) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException(request.getEmail());
         }
@@ -75,82 +82,98 @@ public class AuthService {
         user = userRepository.save(user);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String accessToken = jwtService.generateToken(userDetails);
+        String accessToken = tokenProvider.generateAccessToken(userDetails);
+        RefreshToken refreshToken = refreshTokenRepository.createRefreshToken(user);
 
-        log.info("User registered successfully: {}", user.getEmail());
-        return buildJwtResponse(user, accessToken);
+        auditLog.logRegister(user.getEmail(), ipAddress, userAgent);
+
+        return buildJwtResponse(user, accessToken, refreshToken.getToken());
     }
 
-    public JwtResponse login(LoginRequest request) {
+    @Override
+    @Transactional
+    public JwtResponse login(LoginRequest request, String ipAddress, String userAgent) {
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
         } catch (AuthenticationException ex) {
-            log.warn("Failed login attempt for email: {}", request.getEmail());
+            auditLog.logLoginFailure(request.getEmail(), ipAddress, userAgent, ex.getMessage());
             throw new BadCredentialsException("Invalid email or password");
         }
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
+        refreshTokenRepository.revokeAllByUser(user);
+
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String accessToken = jwtService.generateToken(userDetails);
+        String accessToken = tokenProvider.generateAccessToken(userDetails);
+        RefreshToken refreshToken = refreshTokenRepository.createRefreshToken(user);
 
-        log.info("User logged in successfully: {}", user.getEmail());
-        return buildJwtResponse(user, accessToken);
+        auditLog.logLoginSuccess(user.getEmail(), ipAddress, userAgent);
+
+        return buildJwtResponse(user, accessToken, refreshToken.getToken());
     }
 
-    public String refreshToken(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new InvalidTokenException("Invalid authorization header");
+    @Override
+    @Transactional
+    public JwtResponse refreshToken(String refreshTokenStr, String ipAddress, String userAgent) {
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenStr)
+                .orElseThrow(() -> new RefreshTokenNotFoundException("Refresh token not found"));
+
+        if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
+            refreshTokenRepository.revokeToken(refreshToken);
+            auditLog.logTokenRefreshFailure(ipAddress, userAgent, "Refresh token expired");
+            throw new RefreshTokenExpiredException("Refresh token has expired");
         }
 
-        String token = authHeader.substring(7);
-        String userEmail = jwtService.extractEmail(token);
+        User user = refreshToken.getUser();
+        refreshTokenRepository.revokeToken(refreshToken);
 
-        if (userEmail == null) {
-            throw new InvalidTokenException("Could not extract user from token");
-        }
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        String newAccessToken = tokenProvider.generateAccessToken(userDetails);
+        RefreshToken newRefreshToken = refreshTokenRepository.createRefreshToken(user);
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+        auditLog.logTokenRefresh(user.getEmail(), ipAddress, userAgent);
 
-        if (!jwtService.isTokenValid(token, userDetails)) {
-            throw new InvalidTokenException("Token is invalid or expired");
-        }
-
-        log.info("Token refreshed for user: {}", userEmail);
-        return jwtService.generateToken(userDetails);
+        return buildJwtResponse(user, newAccessToken, newRefreshToken.getToken());
     }
 
-    public boolean validateToken(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return false;
-        }
-
+    @Override
+    public boolean validateToken(String accessToken) {
         try {
-            String token = authHeader.substring(7);
-            String userEmail = jwtService.extractEmail(token);
-
+            String userEmail = tokenProvider.extractEmail(accessToken);
             if (userEmail == null) {
                 return false;
             }
-
             UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
-            return jwtService.isTokenValid(token, userDetails);
+            return tokenProvider.isTokenValid(accessToken, userDetails);
         } catch (Exception ex) {
-            log.debug("Token validation failed: {}", ex.getMessage());
             return false;
         }
     }
 
-    private JwtResponse buildJwtResponse(User user, String accessToken) {
+    @Override
+    @Transactional
+    public void logout(String refreshTokenStr, String ipAddress, String userAgent) {
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenStr)
+                .orElseThrow(() -> new RefreshTokenNotFoundException("Refresh token not found"));
+
+        User user = refreshToken.getUser();
+        refreshTokenRepository.revokeAllByUser(user);
+
+        auditLog.logLogout(user.getEmail(), ipAddress, userAgent);
+    }
+
+    private JwtResponse buildJwtResponse(User user, String accessToken, String refreshToken) {
         List<String> roles = user.getRoles().stream()
                 .map(role -> role.getRoleName().name())
                 .collect(Collectors.toList());
 
         return JwtResponse.builder()
                 .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())

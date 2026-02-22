@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -51,6 +52,7 @@ public class ReservationController {
      * @throws IllegalArgumentException if client or prestataire not found
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
     public ResponseEntity<ReservationResponse> createReservation(@Valid @RequestBody CreateReservationRequest request) {
         ReservationResponse response = reservationService.createReservation(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -71,6 +73,7 @@ public class ReservationController {
      * @throws PaymentFailedException if payment processing fails
      */
     @PostMapping("/with-payment")
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
     public ResponseEntity<ReservationResponse> createReservationWithPayment(
             @Valid @RequestBody ReservationPaymentRequest request) {
         ReservationResponse response = reservationService.createReservationWithPayment(
@@ -86,6 +89,7 @@ public class ReservationController {
      * @throws IllegalArgumentException if reservation not found
      */
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ReservationResponse> getReservation(@PathVariable Long id) {
         ReservationResponse response = reservationService.getReservation(id);
         return ResponseEntity.ok(response);
@@ -98,6 +102,7 @@ public class ReservationController {
      * @return ResponseEntity with list of ReservationResponse objects
      */
     @GetMapping("/client/{clientId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ReservationResponse>> getClientReservations(@PathVariable Long clientId) {
         List<ReservationResponse> responses = reservationService.getClientReservations(clientId);
         return ResponseEntity.ok(responses);
@@ -110,6 +115,7 @@ public class ReservationController {
      * @return ResponseEntity with list of ReservationResponse objects
      */
     @GetMapping("/prestataire/{prestaireId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ReservationResponse>> getPrestaireReservations(@PathVariable Long prestaireId) {
         List<ReservationResponse> responses = reservationService.getPrestaireReservations(prestaireId);
         return ResponseEntity.ok(responses);
@@ -126,6 +132,7 @@ public class ReservationController {
      * @throws IllegalArgumentException if reservation not found or status is invalid
      */
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<ReservationResponse> updateReservationStatus(
             @PathVariable Long id,
             @RequestParam String status) {
@@ -143,6 +150,7 @@ public class ReservationController {
      * @throws IllegalArgumentException if reservation not found
      */
     @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
     public ResponseEntity<ReservationResponse> cancelReservation(@PathVariable Long id) {
         ReservationResponse response = reservationService.cancelReservation(id);
         return ResponseEntity.ok(response);
@@ -155,6 +163,7 @@ public class ReservationController {
      * @return ResponseEntity with list of ReservationResponse objects for the date
      */
     @GetMapping("/by-date")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ReservationResponse>> getReservationsByDate(
             @RequestParam LocalDate date) {
         List<ReservationResponse> responses = reservationService.getReservationsByDate(date);

@@ -5,9 +5,10 @@ import com.sbsolutions.rilybricoule.dto.JwtResponse;
 import com.sbsolutions.rilybricoule.dto.LoginRequest;
 import com.sbsolutions.rilybricoule.dto.RegisterRequest;
 import com.sbsolutions.rilybricoule.exceptions.EmailAlreadyExistsException;
-import com.sbsolutions.rilybricoule.security.CustomUserDetailsService;
-import com.sbsolutions.rilybricoule.security.JwtService;
-import com.sbsolutions.rilybricoule.services.AuthService;
+import com.sbsolutions.rilybricoule.security.adapter.in.web.AuthController;
+import com.sbsolutions.rilybricoule.security.domain.port.in.AuthUseCase;
+import com.sbsolutions.rilybricoule.security.domain.port.out.AuditLogPort;
+import com.sbsolutions.rilybricoule.security.domain.port.out.TokenProviderPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -34,9 +36,10 @@ class AuthControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private AuthService authService;
-    @MockBean private JwtService jwtService;
-    @MockBean private CustomUserDetailsService customUserDetailsService;
+    @MockBean private AuthUseCase authUseCase;
+    @MockBean private TokenProviderPort tokenProvider;
+    @MockBean private UserDetailsService userDetailsService;
+    @MockBean private AuditLogPort auditLog;
 
     @Nested
     @DisplayName("POST /api/auth/register")
@@ -52,19 +55,21 @@ class AuthControllerTest {
 
             JwtResponse response = JwtResponse.builder()
                     .accessToken("jwt-token-123")
+                    .refreshToken("refresh-token-123")
                     .email("ahmed@test.com")
                     .firstName("Ahmed")
                     .lastName("Benali")
                     .roles(List.of("ROLE_CLIENT"))
                     .build();
 
-            when(authService.register(any(RegisterRequest.class))).thenReturn(response);
+            when(authUseCase.register(any(RegisterRequest.class), any(), any())).thenReturn(response);
 
             mockMvc.perform(post("/api/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").value("jwt-token-123"))
+                    .andExpect(jsonPath("$.refreshToken").value("refresh-token-123"))
                     .andExpect(jsonPath("$.email").value("ahmed@test.com"))
                     .andExpect(jsonPath("$.firstName").value("Ahmed"))
                     .andExpect(jsonPath("$.roles[0]").value("ROLE_CLIENT"));
@@ -148,7 +153,7 @@ class AuthControllerTest {
                     "0612345678", "CLIENT", null, null, null
             );
 
-            when(authService.register(any(RegisterRequest.class)))
+            when(authUseCase.register(any(RegisterRequest.class), any(), any()))
                     .thenThrow(new EmailAlreadyExistsException("existing@test.com"));
 
             mockMvc.perform(post("/api/auth/register")
@@ -169,19 +174,21 @@ class AuthControllerTest {
 
             JwtResponse response = JwtResponse.builder()
                     .accessToken("jwt-login-token")
+                    .refreshToken("refresh-login-token")
                     .email("ahmed@test.com")
                     .firstName("Ahmed")
                     .lastName("Benali")
                     .roles(List.of("ROLE_CLIENT"))
                     .build();
 
-            when(authService.login(any(LoginRequest.class))).thenReturn(response);
+            when(authUseCase.login(any(LoginRequest.class), any(), any())).thenReturn(response);
 
             mockMvc.perform(post("/api/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").value("jwt-login-token"))
+                    .andExpect(jsonPath("$.refreshToken").value("refresh-login-token"))
                     .andExpect(jsonPath("$.email").value("ahmed@test.com"));
         }
 
@@ -190,7 +197,7 @@ class AuthControllerTest {
         void login_WrongPassword_Returns401() throws Exception {
             LoginRequest request = new LoginRequest("ahmed@test.com", "wrongpassword");
 
-            when(authService.login(any(LoginRequest.class)))
+            when(authUseCase.login(any(LoginRequest.class), any(), any()))
                     .thenThrow(new BadCredentialsException("Invalid email or password"));
 
             mockMvc.perform(post("/api/auth/login")

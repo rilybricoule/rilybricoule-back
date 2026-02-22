@@ -4,6 +4,7 @@ import com.sbsolutions.rilybricoule.mapper.CouponMapper;
 import com.sbsolutions.rilybricoule.repository.ClientRepository;
 import com.sbsolutions.rilybricoule.repository.CouponRepository;
 import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
+import com.sbsolutions.rilybricoule.security.domain.port.in.AuthUseCase;
 import com.sbsolutions.rilybricoule.services.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,7 +29,7 @@ class RoleBasedAccessTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean private AuthService authService;
+    @MockBean private AuthUseCase authUseCase;
     @MockBean private ClientRepository clientRepository;
     @MockBean private PrestaireRepository prestaireRepository;
     @MockBean private GeocodingService geocodingService;
