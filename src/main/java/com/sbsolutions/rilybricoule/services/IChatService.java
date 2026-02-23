@@ -10,4 +10,7 @@ public interface IChatService {
 
     Chat startOrGetChat(Long clientId, Long prestataireId, Long reservationId);
 
+
+    void archiveConversation(Long chatId, Long userId);
+
 }
