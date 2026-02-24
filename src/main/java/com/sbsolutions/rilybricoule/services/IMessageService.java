@@ -19,8 +19,12 @@ public interface IMessageService {
 
     void markAsRead(Long chatId, Long receiverId);
 
+    void restoreConversation(Long chatId, Long userId);
 
     long getUnreadMessageCount(Long userId);
 
     long getUnreadMessageCountForChat(Long chatId, Long userId);
+
+    int purgeDeletedMessagesOlderThanSevenDays();
+
 }

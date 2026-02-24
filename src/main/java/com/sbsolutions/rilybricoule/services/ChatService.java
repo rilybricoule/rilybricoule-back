@@ -56,4 +56,18 @@ public class ChatService implements IChatService {
 
         return chat;
     }
+
+    @Override
+    @Transactional
+    public void archiveConversation(Long chatId, Long userId) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new RuntimeException("Chat not found"));
+        if (!chat.getClient().getId().equals(userId) && !chat.getPrestataire().getId().equals(userId)) {
+            throw new RuntimeException("You are not part of this chat");
+        }
+        chat.setArchivedAt(LocalDateTime.now());
+        chatRepository.save(chat);
+    }
+
+
 }

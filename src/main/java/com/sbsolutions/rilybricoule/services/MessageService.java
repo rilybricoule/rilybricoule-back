@@ -11,6 +11,7 @@ import com.sbsolutions.rilybricoule.repository.ChatRepository;
 import com.sbsolutions.rilybricoule.repository.MessageRepository;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MessageService implements IMessageService {
@@ -29,6 +32,7 @@ public class MessageService implements IMessageService {
     private final MessageMapper messageMapper;
     private final INotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
+    private static final int RESTORE_DAYS = 7;
 
 
     @Override
@@ -173,4 +177,48 @@ public class MessageService implements IMessageService {
                 .map(messageMapper::toDto)
                 .collect(Collectors.toList());
     }
+
+
+    @Transactional
+    public int purgeDeletedMessagesOlderThanSevenDays() {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(RESTORE_DAYS);
+        List<Message> toPurge = messageRepository.findByDeletedTrueAndDeletedAtBefore(threshold);
+        int count = toPurge.size();
+        if (count > 0) {
+            messageRepository.deleteAll(toPurge);
+            log.info("Permanently deleted {} messages (soft-deleted more than {} days ago)", count, RESTORE_DAYS);
+        }
+        return count;
+    }
+
+
+    @Override
+    @Transactional
+    public void restoreConversation(Long chatId, Long userId) {
+        // 1) Chat exists and user is participant
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new RuntimeException("Chat not found"));
+        if (!chat.getClient().getId().equals(userId) && !chat.getPrestataire().getId().equals(userId)) {
+            throw new RuntimeException("You are not part of this chat");
+        }
+
+        // 2) Only messages deleted within the last 7 days
+        LocalDateTime after = LocalDateTime.now().minusDays(RESTORE_DAYS);
+        List<Message> restorable = messageRepository.findByChatIdAndDeletedTrueAndDeletedAtAfter(chatId, after);
+
+        // 3) Restore each
+        for (Message m : restorable) {
+            m.setDeleted(false);
+            m.setDeletedAt(null);
+            messageRepository.save(m);
+        }
+
+
+
+
+
+    }
+
+
+
 }

@@ -3,7 +3,6 @@ package com.sbsolutions.rilybricoule.controllers;
 import com.sbsolutions.rilybricoule.dto.input.MessageInputDto;
 import com.sbsolutions.rilybricoule.dto.output.MessageOutputDto;
 import com.sbsolutions.rilybricoule.services.IMessageService;
-import com.sbsolutions.rilybricoule.services.MessageArchiveService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,7 +23,7 @@ import java.util.List;
 public class MessageController {
 
     private final IMessageService messageService;
-    private final MessageArchiveService messageArchiveService;
+
     // ------------------- SEND MESSAGE -------------------
     @Operation(summary = "Send a message in a chat",
             description = "Saves a message to a chat and optionally triggers notifications.")
@@ -102,25 +101,23 @@ public class MessageController {
             @RequestParam Long receiverId) {
         return ResponseEntity.ok(messageService.getUnreadMessageCountForChat(chatId, receiverId));
     }
-    @Operation(summary = "Trigger archive now (for testing)",
-            description = "Archives messages older than 6 months. Optional: use olderThanMinutes (e.g. 1) to archive messages older than that many minutes for easy testing.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Archive job ran successfully")
-    })
-    @PostMapping("/archive-now")
-    public ResponseEntity<Integer> archiveNow(
-            @Parameter(description = "Optional. If set, archive messages older than this many minutes (e.g. 1 for testing). If not set, uses 6 months.")
-            @RequestParam(required = false) Integer olderThanMinutes) {
-        int archived;
-        if (olderThanMinutes != null) {
-            archived = messageArchiveService.archiveOlderThanMinutes(olderThanMinutes);
-        } else {
-            messageArchiveService.archiveOldMessages();
-            archived = -1; // or you can change archiveOldMessages() to return int
-        }
-        return ResponseEntity.ok(archived);
-    }
 
+    @Operation(
+            summary = "Restore conversation",
+            description = "Restores all messages in the chat that were deleted within the last 7 days. After 7 days, messages are permanently deleted and cannot be restored."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation restored successfully"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "User is not part of this chat")
+    })
+    @PutMapping("/chats/{chatId}/restore")
+    public ResponseEntity<Void> restoreConversation(
+            @Parameter(description = "ID of the chat to restore") @PathVariable Long chatId,
+            @Parameter(description = "ID of the user requesting the restore (must be a participant)") @RequestParam Long userId) {
+        messageService.restoreConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
 
     @Operation(summary = "Mark all messages in a chat as read")
     @PostMapping("/chats/{chatId}/read")
@@ -165,4 +162,20 @@ public class MessageController {
         messageService.deleteMessage(messageId, senderId);
         return ResponseEntity.ok().build();
     }
+
+
+    @Operation(
+            summary = "Purge old deleted messages",
+            description = "Permanently deletes messages that were soft-deleted more than 7 days ago. Can be called manually or by a scheduler."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Purge completed; body = number of messages deleted"),
+    })
+    @PostMapping("/purge-deleted")
+    public ResponseEntity<Integer> purgeDeletedMessages() {
+        int count = messageService.purgeDeletedMessagesOlderThanSevenDays();
+        return ResponseEntity.ok(count);
+    }
+
+
 }
