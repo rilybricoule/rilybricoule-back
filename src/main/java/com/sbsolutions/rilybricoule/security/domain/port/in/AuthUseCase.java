@@ -1,13 +1,12 @@
 package com.sbsolutions.rilybricoule.security.domain.port.in;
 
-import com.sbsolutions.rilybricoule.dto.JwtResponse;
-import com.sbsolutions.rilybricoule.dto.LoginRequest;
-import com.sbsolutions.rilybricoule.dto.RegisterRequest;
-import com.sbsolutions.rilybricoule.dto.SocialLoginRequest;
+import com.sbsolutions.rilybricoule.dto.*;
 
 public interface AuthUseCase {
 
-    JwtResponse register(RegisterRequest request, String ipAddress, String userAgent);
+    void register(RegisterRequest request, String ipAddress, String userAgent);
+
+    JwtResponse verifyEmailAndActivate(String email, String code, String ipAddress, String userAgent);
 
     JwtResponse login(LoginRequest request, String ipAddress, String userAgent);
 
@@ -18,4 +17,10 @@ public interface AuthUseCase {
     boolean validateToken(String accessToken);
 
     void logout(String refreshToken, String ipAddress, String userAgent);
+
+    void forgotPassword(String email);
+
+    void resetPassword(String email, String code, String newPassword);
+
+    void resendOtp(String email, String purpose);
 }

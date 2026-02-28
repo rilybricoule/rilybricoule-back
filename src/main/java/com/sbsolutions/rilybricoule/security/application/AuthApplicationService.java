@@ -1,10 +1,6 @@
 package com.sbsolutions.rilybricoule.security.application;
 
-import com.sbsolutions.rilybricoule.dto.JwtResponse;
-import com.sbsolutions.rilybricoule.dto.LoginRequest;
-import com.sbsolutions.rilybricoule.dto.RegisterRequest;
-import com.sbsolutions.rilybricoule.dto.SocialLoginRequest;
-import com.sbsolutions.rilybricoule.dto.SocialUserInfo;
+import com.sbsolutions.rilybricoule.dto.*;
 import com.sbsolutions.rilybricoule.entity.*;
 import com.sbsolutions.rilybricoule.exceptions.EmailAlreadyExistsException;
 import com.sbsolutions.rilybricoule.exceptions.RefreshTokenExpiredException;
@@ -18,6 +14,7 @@ import com.sbsolutions.rilybricoule.security.domain.port.out.RefreshTokenReposit
 import com.sbsolutions.rilybricoule.security.domain.port.out.TokenProviderPort;
 import com.sbsolutions.rilybricoule.security.infrastructure.oauth2.OAuth2TokenVerifier;
 import com.sbsolutions.rilybricoule.security.infrastructure.oauth2.OAuth2TokenVerifierFactory;
+import com.sbsolutions.rilybricoule.services.OtpService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -49,10 +46,11 @@ public class AuthApplicationService implements AuthUseCase {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final OAuth2TokenVerifierFactory oAuth2TokenVerifierFactory;
+    private final OtpService otpService;
 
     @Override
     @Transactional
-    public JwtResponse register(RegisterRequest request, String ipAddress, String userAgent) {
+    public void register(RegisterRequest request, String ipAddress, String userAgent) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException(request.getEmail());
         }
@@ -76,7 +74,7 @@ public class AuthApplicationService implements AuthUseCase {
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setPhone(request.getPhone());
-        user.setEnabled(true);
+        user.setEnabled(false);
 
         RoleName roleName = "PRESTATAIRE".equalsIgnoreCase(request.getRole())
                 ? RoleName.ROLE_PRESTATAIRE
@@ -86,7 +84,24 @@ public class AuthApplicationService implements AuthUseCase {
                 .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
 
         user.setRoles(Set.of(role));
-        user = userRepository.save(user);
+        userRepository.save(user);
+
+        otpService.generateAndSendOtp(user.getEmail(), OtpPurpose.EMAIL_VERIFICATION);
+    }
+
+    @Override
+    @Transactional
+    public JwtResponse verifyEmailAndActivate(String email, String code, String ipAddress, String userAgent) {
+        boolean valid = otpService.verifyOtp(email, code, OtpPurpose.EMAIL_VERIFICATION);
+        if (!valid) {
+            throw new IllegalArgumentException("Invalid or expired OTP code");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setEnabled(true);
+        userRepository.save(user);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String accessToken = tokenProvider.generateAccessToken(userDetails);
@@ -221,6 +236,53 @@ public class AuthApplicationService implements AuthUseCase {
         refreshTokenRepository.revokeAllByUser(user);
 
         auditLog.logLogout(user.getEmail(), ipAddress, userAgent);
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return;
+        }
+        otpService.generateAndSendOtp(email, OtpPurpose.PASSWORD_RESET);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String email, String code, String newPassword) {
+        boolean valid = otpService.verifyOtp(email, code, OtpPurpose.PASSWORD_RESET);
+        if (!valid) {
+            throw new IllegalArgumentException("Invalid or expired OTP code");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        refreshTokenRepository.revokeAllByUser(user);
+    }
+
+    @Override
+    @Transactional
+    public void resendOtp(String email, String purpose) {
+        OtpPurpose otpPurpose = OtpPurpose.valueOf(purpose.toUpperCase());
+
+        if (otpPurpose == OtpPurpose.EMAIL_VERIFICATION) {
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null || user.isEnabled()) {
+                throw new IllegalArgumentException("Invalid request");
+            }
+        } else {
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) {
+                return;
+            }
+        }
+
+        otpService.generateAndSendOtp(email, otpPurpose);
     }
 
     private JwtResponse buildJwtResponse(User user, String accessToken, String refreshToken) {

@@ -1,10 +1,6 @@
 package com.sbsolutions.rilybricoule.security.adapter.in.web;
 
-import com.sbsolutions.rilybricoule.dto.JwtResponse;
-import com.sbsolutions.rilybricoule.dto.LoginRequest;
-import com.sbsolutions.rilybricoule.dto.RefreshTokenRequest;
-import com.sbsolutions.rilybricoule.dto.RegisterRequest;
-import com.sbsolutions.rilybricoule.dto.SocialLoginRequest;
+import com.sbsolutions.rilybricoule.dto.*;
 import com.sbsolutions.rilybricoule.security.domain.port.in.AuthUseCase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -22,9 +18,17 @@ public class AuthController {
     private final AuthUseCase authUseCase;
 
     @PostMapping("/register")
-    public ResponseEntity<JwtResponse> register(@Valid @RequestBody RegisterRequest request,
-                                                 HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(authUseCase.register(request, extractIp(httpRequest), extractUserAgent(httpRequest)));
+    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody RegisterRequest request,
+                                                         HttpServletRequest httpRequest) {
+        authUseCase.register(request, extractIp(httpRequest), extractUserAgent(httpRequest));
+        return ResponseEntity.ok(Map.of("message", "Registration successful. Please check your email for the verification code."));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<JwtResponse> verifyEmail(@Valid @RequestBody VerifyOtpRequest request,
+                                                    HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(authUseCase.verifyEmailAndActivate(
+                request.getEmail(), request.getCode(), extractIp(httpRequest), extractUserAgent(httpRequest)));
     }
 
     @PostMapping("/login")
@@ -37,6 +41,25 @@ public class AuthController {
     public ResponseEntity<JwtResponse> socialLogin(@Valid @RequestBody SocialLoginRequest request,
                                                     HttpServletRequest httpRequest) {
         return ResponseEntity.ok(authUseCase.socialLogin(request, extractIp(httpRequest), extractUserAgent(httpRequest)));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authUseCase.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(Map.of("message", "If the email exists, a reset code has been sent."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authUseCase.resetPassword(request.getEmail(), request.getCode(), request.getNewPassword());
+        return ResponseEntity.ok(Map.of("message", "Password reset successfully."));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<Map<String, String>> resendOtp(@RequestParam String email,
+                                                          @RequestParam String purpose) {
+        authUseCase.resendOtp(email, purpose);
+        return ResponseEntity.ok(Map.of("message", "OTP code has been resent."));
     }
 
     @PostMapping("/refresh")
