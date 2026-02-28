@@ -4,6 +4,7 @@ import com.sbsolutions.rilybricoule.dto.JwtResponse;
 import com.sbsolutions.rilybricoule.dto.LoginRequest;
 import com.sbsolutions.rilybricoule.dto.RefreshTokenRequest;
 import com.sbsolutions.rilybricoule.dto.RegisterRequest;
+import com.sbsolutions.rilybricoule.dto.SocialLoginRequest;
 import com.sbsolutions.rilybricoule.security.domain.port.in.AuthUseCase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -30,6 +31,12 @@ public class AuthController {
     public ResponseEntity<JwtResponse> login(@Valid @RequestBody LoginRequest request,
                                               HttpServletRequest httpRequest) {
         return ResponseEntity.ok(authUseCase.login(request, extractIp(httpRequest), extractUserAgent(httpRequest)));
+    }
+
+    @PostMapping("/social-login")
+    public ResponseEntity<JwtResponse> socialLogin(@Valid @RequestBody SocialLoginRequest request,
+                                                    HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(authUseCase.socialLogin(request, extractIp(httpRequest), extractUserAgent(httpRequest)));
     }
 
     @PostMapping("/refresh")

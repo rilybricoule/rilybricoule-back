@@ -3,6 +3,8 @@ package com.sbsolutions.rilybricoule.security.application;
 import com.sbsolutions.rilybricoule.dto.JwtResponse;
 import com.sbsolutions.rilybricoule.dto.LoginRequest;
 import com.sbsolutions.rilybricoule.dto.RegisterRequest;
+import com.sbsolutions.rilybricoule.dto.SocialLoginRequest;
+import com.sbsolutions.rilybricoule.dto.SocialUserInfo;
 import com.sbsolutions.rilybricoule.entity.*;
 import com.sbsolutions.rilybricoule.exceptions.EmailAlreadyExistsException;
 import com.sbsolutions.rilybricoule.exceptions.RefreshTokenExpiredException;
@@ -14,6 +16,8 @@ import com.sbsolutions.rilybricoule.security.domain.port.in.AuthUseCase;
 import com.sbsolutions.rilybricoule.security.domain.port.out.AuditLogPort;
 import com.sbsolutions.rilybricoule.security.domain.port.out.RefreshTokenRepositoryPort;
 import com.sbsolutions.rilybricoule.security.domain.port.out.TokenProviderPort;
+import com.sbsolutions.rilybricoule.security.infrastructure.oauth2.OAuth2TokenVerifier;
+import com.sbsolutions.rilybricoule.security.infrastructure.oauth2.OAuth2TokenVerifierFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -27,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +48,7 @@ public class AuthApplicationService implements AuthUseCase {
     private final AuditLogPort auditLog;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
+    private final OAuth2TokenVerifierFactory oAuth2TokenVerifierFactory;
 
     @Override
     @Transactional
@@ -104,6 +111,56 @@ public class AuthApplicationService implements AuthUseCase {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+
+        refreshTokenRepository.revokeAllByUser(user);
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        String accessToken = tokenProvider.generateAccessToken(userDetails);
+        RefreshToken refreshToken = refreshTokenRepository.createRefreshToken(user);
+
+        auditLog.logLoginSuccess(user.getEmail(), ipAddress, userAgent);
+
+        return buildJwtResponse(user, accessToken, refreshToken.getToken());
+    }
+
+    @Override
+    @Transactional
+    public JwtResponse socialLogin(SocialLoginRequest request, String ipAddress, String userAgent) {
+        AuthProvider provider = AuthProvider.valueOf(request.getProvider().toUpperCase());
+        OAuth2TokenVerifier verifier = oAuth2TokenVerifierFactory.getVerifier(provider);
+        SocialUserInfo socialUser = verifier.verify(request.getIdToken());
+
+        Optional<User> existingUser = userRepository.findByEmail(socialUser.getEmail());
+        User user;
+
+        if (existingUser.isPresent()) {
+            user = existingUser.get();
+            if (user.getAuthProvider() == AuthProvider.LOCAL) {
+                user.setAuthProvider(provider);
+                user.setProviderId(socialUser.getProviderId());
+                if (socialUser.getPhotoUrl() != null) {
+                    user.setPhotoUrl(socialUser.getPhotoUrl());
+                }
+                user = userRepository.save(user);
+            }
+        } else {
+            Client client = new Client();
+            client.setEmail(socialUser.getEmail());
+            client.setFirstName(socialUser.getFirstName() != null ? socialUser.getFirstName() : "");
+            client.setLastName(socialUser.getLastName() != null ? socialUser.getLastName() : "");
+            client.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+            client.setAuthProvider(provider);
+            client.setProviderId(socialUser.getProviderId());
+            client.setPhotoUrl(socialUser.getPhotoUrl());
+            client.setEnabled(true);
+
+            Role role = roleRepository.findByRoleName(RoleName.ROLE_CLIENT)
+                    .orElseThrow(() -> new RuntimeException("Role not found: ROLE_CLIENT"));
+            client.setRoles(Set.of(role));
+
+            user = userRepository.save(client);
+            auditLog.logRegister(user.getEmail(), ipAddress, userAgent);
+        }
 
         refreshTokenRepository.revokeAllByUser(user);
 
