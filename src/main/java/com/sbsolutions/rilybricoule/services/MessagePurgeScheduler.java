@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MessagePurgeScheduler {
 
-    private final MessageService messageService;
+    private final IMessageService messageService;
 
     // Every day at 03:00
     @Scheduled(cron = "0 0 3 * * *", zone = "Africa/Casablanca")
