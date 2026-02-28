@@ -1,6 +1,5 @@
 package com.sbsolutions.rilybricoule.dto.output;
 
-import com.sbsolutions.rilybricoule.entity.Reservation;
 import lombok.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,15 +11,16 @@ import java.util.List;
 @Builder
 public class ChatOutputDto {
 
-
-
-    private String clientName;
-    private String prestataireName;
-    private LocalDateTime createdAt;     // date de création du chat
-
-    private LocalDateTime lastMessageAt; // date du dernier message
-    private boolean active;              // chat actif ou non
-    private List<MessageOutputDto> messages; // liste des messages
+    private Long chatId;
+    private Long clientId;
+    private Long prestataireId;
+    private String clientFirstName;
+    private String clientLastName;
+    private String prestataireFirstName;
+    private String prestataireLastName;
+    private Long reservationId;
+    private LocalDateTime createdAt;
+    private Boolean active;
+    private LocalDateTime lastMessageAt;
+    private List<MessageOutputDto> messages;
 }
-
-

@@ -14,11 +14,19 @@ import com.sbsolutions.rilybricoule.repository.CouponRepository;
 import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
 import com.sbsolutions.rilybricoule.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.GrantedAuthority;
+import com.sbsolutions.rilybricoule.exceptions.BusinessException;
+import com.sbsolutions.rilybricoule.entity.PaymentHistory;
+import com.sbsolutions.rilybricoule.repository.PaymentHistoryRepository;
+import com.sbsolutions.rilybricoule.entity.Paiement;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -68,6 +76,8 @@ public class ReservationService {
     private final CouponRepository couponRepository;
     private final CouponService couponService;
     private final PaymentService paymentService;
+    private final INotificationService notificationService;
+    private final PaymentHistoryRepository paymentHistoryRepository;
 
     /**
      * Create a new reservation from a request.
@@ -121,6 +131,8 @@ public class ReservationService {
         reservation.setTotalPrice(calculateTotalPrice(prestataire, reservation.getDiscountAmount()));
 
         Reservation savedReservation = reservationRepository.save(reservation);
+        notificationService.notifyReservation(client, savedReservation);
+
         return ReservationResponse.fromEntity(savedReservation);
     }
 
@@ -162,14 +174,17 @@ public class ReservationService {
         paymentRequest.setAmount(reservation.getTotalPrice());
         if (paymentRequest.getCurrency() == null) paymentRequest.setCurrency("EUR");
 
+
         // Process the payment
         PaymentResponseDTO paymentResponse = paymentService.processPayment(paymentRequest);
         
-        if (paymentResponse.isSuccess()) {
+        if (paymentResponse != null && paymentResponse.isSuccess()) {
             // Payment successful: update reservation to CONFIRMED
             reservation.setStatus(Reservation.ReservationStatus.CONFIRMED);
-            reservationRepository.save(reservation);
-            return ReservationResponse.fromEntity(reservation);
+            Reservation confirmed = reservationRepository.save(reservation);
+            notificationService.notifyReservation(reservation.getClient(), confirmed);
+            return ReservationResponse.fromEntity(confirmed);
+
         } else {
             throw new PaymentFailedException("Payment failed");
         }
@@ -238,9 +253,20 @@ public class ReservationService {
     public ReservationResponse updateReservationStatus(Long id, String status) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Reservation not found with ID: " + id));
-
         try {
             Reservation.ReservationStatus newStatus = Reservation.ReservationStatus.valueOf(status.toUpperCase());
+            // validate allowed transition
+            validateStatusTransition(reservation.getStatus(), newStatus);
+
+            // Additional validations
+            if (newStatus == Reservation.ReservationStatus.CONFIRMED) {
+                // cannot confirm if not paid
+                Paiement paiement = reservation.getPaiement();
+                if (paiement == null || paiement.getPaymentStatus() != Paiement.PaymentStatus.SUCCESS) {
+                    throw new BusinessException("Cannot confirm reservation that is not paid");
+                }
+            }
+
             reservation.setStatus(newStatus);
             reservationRepository.save(reservation);
             return ReservationResponse.fromEntity(reservation);
@@ -257,7 +283,97 @@ public class ReservationService {
      * @throws IllegalArgumentException if reservation is not found
      */
     public ReservationResponse cancelReservation(Long id) {
-        return updateReservationStatus(id, "CANCELLED");
+        Reservation reservation = reservationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Reservation not found with ID: " + id));
+
+        // Business rules
+        if (reservation.getStatus() == Reservation.ReservationStatus.COMPLETED) {
+            throw new BusinessException("A completed reservation cannot be cancelled");
+        }
+
+        if (reservation.getStatus() == Reservation.ReservationStatus.CANCELLED) {
+            throw new BusinessException("Reservation is already cancelled");
+        }
+
+        // Only owner (client) or admin can cancel
+        String authEmail = getAuthenticatedUserEmail();
+        boolean admin = isAdmin();
+        if (!admin) {
+            if (authEmail == null || reservation.getClient() == null || !authEmail.equalsIgnoreCase(reservation.getClient().getEmail())) {
+                throw new BusinessException("Only the reservation owner can cancel this reservation");
+            }
+        }
+
+        // Forbidden less than 24 hours before reservation
+        LocalDateTime reservationDateTime = LocalDateTime.of(reservation.getReservationDate(), reservation.getReservationTime());
+        if (LocalDateTime.now().isAfter(reservationDateTime.minusHours(24))) {
+            throw new BusinessException("Cancellation is forbidden less than 24 hours before reservation");
+        }
+
+        // Perform cancellation
+        reservation.setStatus(Reservation.ReservationStatus.CANCELLED);
+        reservation.setCancelledAt(LocalDateTime.now());
+        reservationRepository.save(reservation);
+
+        // Create payment history refund if payment exists and was successful
+        Paiement paiement = reservation.getPaiement();
+        if (paiement != null && paiement.getPaymentStatus() == Paiement.PaymentStatus.SUCCESS) {
+            try {
+                PaymentHistory history = PaymentHistory.builder()
+                        .amount(paiement.getAmount())
+                        .action(PaymentHistory.PaymentAction.REFUND)
+                        .reservation(reservation)
+                        .build();
+                paymentHistoryRepository.save(history);
+            } catch (Exception ignored) {
+            }
+        }
+
+        return ReservationResponse.fromEntity(reservation);
+    }
+
+    /**
+     * Validate allowed status transitions.
+     */
+    public void validateStatusTransition(Reservation.ReservationStatus currentStatus, Reservation.ReservationStatus newStatus) {
+        if (currentStatus == newStatus) return;
+
+        switch (currentStatus) {
+            case PENDING_PAYMENT:
+                if (newStatus != Reservation.ReservationStatus.CONFIRMED && newStatus != Reservation.ReservationStatus.CANCELLED) {
+                    throw new BusinessException("Invalid status transition from PENDING_PAYMENT to " + newStatus);
+                }
+                break;
+            case CONFIRMED:
+                if (newStatus != Reservation.ReservationStatus.COMPLETED && newStatus != Reservation.ReservationStatus.CANCELLED) {
+                    throw new BusinessException("Invalid status transition from CONFIRMED to " + newStatus);
+                }
+                break;
+            case COMPLETED:
+            case CANCELLED:
+                throw new BusinessException("No transitions allowed from " + currentStatus);
+            default:
+                throw new BusinessException("Unhandled reservation status: " + currentStatus);
+        }
+    }
+
+    private String getAuthenticatedUserEmail() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) return null;
+        Object principal = auth.getPrincipal();
+        if (principal instanceof org.springframework.security.core.userdetails.User) {
+            return ((org.springframework.security.core.userdetails.User) principal).getUsername();
+        }
+        return principal.toString();
+    }
+
+    private boolean isAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        for (GrantedAuthority ga : auth.getAuthorities()) {
+            if ("ROLE_ADMIN".equals(ga.getAuthority())) return true;
+        }
+        return false;
     }
 
     /**

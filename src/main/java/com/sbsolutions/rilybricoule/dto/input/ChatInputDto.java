@@ -16,7 +16,7 @@ import lombok.*;
 public class ChatInputDto {
 
 
-    private Long senderId;
-    private Long receiverId;
+    private Long clientId;
+    private Long prestataireId;
     private Long reservationId;
 }

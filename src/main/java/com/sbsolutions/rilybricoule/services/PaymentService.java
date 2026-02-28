@@ -7,6 +7,8 @@ import com.sbsolutions.rilybricoule.entity.Reservation;
 import com.sbsolutions.rilybricoule.exceptions.PaymentFailedException;
 import com.sbsolutions.rilybricoule.repository.PaiementRepository;
 import com.sbsolutions.rilybricoule.repository.ReservationRepository;
+import com.sbsolutions.rilybricoule.repository.PaymentHistoryRepository;
+import com.sbsolutions.rilybricoule.entity.PaymentHistory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +47,7 @@ public class PaymentService {
 
     private final PaiementRepository paiementRepository;
     private final ReservationRepository reservationRepository;
+    private final PaymentHistoryRepository paymentHistoryRepository;
 
     /**
      * Process a payment request through the payment gateway.
@@ -140,6 +143,17 @@ public class PaymentService {
             
             paiementRepository.save(paiement);
             reservationRepository.save(reservation);
+            // create payment history entry
+            try {
+                PaymentHistory history = PaymentHistory.builder()
+                        .amount(paiement.getAmount())
+                        .action(PaymentHistory.PaymentAction.PAYMENT)
+                        .reservation(reservation)
+                        .build();
+                paymentHistoryRepository.save(history);
+            } catch (Exception ignored) {
+                // Don't fail payment when history creation fails
+            }
         } else {
             // Payment failed: update paiement and reservation to CANCELLED
             paiement.setPaymentStatus(Paiement.PaymentStatus.FAILED);

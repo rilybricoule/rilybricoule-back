@@ -18,7 +18,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Tag(name = "Chats", description = "Endpoints for managing chats and messages")
@@ -41,31 +43,59 @@ public class ChatController {
     })
     @PostMapping("/start")
     @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
-    public ResponseEntity<ChatOutputDto> startChat(
-            @RequestBody ChatInputDto dto
-    ) {
+    public ResponseEntity<ChatOutputDto> startChat(@RequestBody ChatInputDto dto) {
         // Build minimal entity references from IDs
-        User sender = new User();
-        sender.setId(dto.getSenderId());
+        Chat chat = chatService.startOrGetChat(dto.getClientId(), dto.getPrestataireId(), dto.getReservationId());
 
-        User receiver = new User();
-        receiver.setId(dto.getReceiverId());
+        // Map messages
+        List<MessageOutputDto> messageDtos = Optional.ofNullable(chat.getMessages())
+                .orElse(Collections.emptyList())
+                .stream()
+                .sorted((m1, m2) -> m1.getCreatedAt().compareTo(m2.getCreatedAt()))
+                .map(msg -> MessageOutputDto.builder()
+                        .id(msg.getId())
+                        .senderName(msg.getSender().getFirstName())
+                        .content(msg.getContent())
+                        .createdAt(msg.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
 
-        Reservation reservation = new Reservation();
-        reservation.setId(dto.getReservationId());
 
-        Chat chat = chatService.startOrGetChat(sender.getId(), receiver.getId(), reservation.getId());
 
+
+        // Build output
         ChatOutputDto output = ChatOutputDto.builder()
-                .clientName(chat.getClient().getFirstName())
-                .prestataireName(chat.getPrestataire().getFirstName())
+                .chatId(chat.getId())
+                .clientId(chat.getClient().getId())
+                .prestataireId(chat.getPrestataire().getId())
+                .clientFirstName(chat.getClient().getFirstName())
+                .clientLastName(chat.getClient().getLastName())
+                .prestataireFirstName(chat.getPrestataire().getFirstName())
+                .prestataireLastName(chat.getPrestataire().getLastName())
+                .reservationId(chat.getReservation() != null ? chat.getReservation().getId() : null)
                 .createdAt(chat.getCreatedAt())
                 .active(chat.isActive())
+                .lastMessageAt(chat.getLastMessageAt())
+                .messages(messageDtos)
                 .build();
 
         return ResponseEntity.ok(output);
     }
 
+
+    @Operation(summary = "Archive conversation", description = "Moves the chat to archive. It will no longer appear in the main chat list.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation archived"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant")
+    })
+    @PutMapping("/{chatId}/archive")
+    public ResponseEntity<Void> archiveConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @RequestParam Long userId) {
+        chatService.archiveConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
 
 
 }

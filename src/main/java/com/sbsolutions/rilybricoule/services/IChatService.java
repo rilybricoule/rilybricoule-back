@@ -3,15 +3,14 @@ package com.sbsolutions.rilybricoule.services;
 
 
 import com.sbsolutions.rilybricoule.entity.Chat;
-import com.sbsolutions.rilybricoule.entity.Prestataire;
-import com.sbsolutions.rilybricoule.entity.Reservation;
-import com.sbsolutions.rilybricoule.entity.User;
 import org.springframework.stereotype.Service;
 
 @Service
 public interface IChatService {
 
+    Chat startOrGetChat(Long clientId, Long prestataireId, Long reservationId);
 
-    Chat startOrGetChat(Long senderId, Long receiverId, Long reservationId);
+
+    void archiveConversation(Long chatId, Long userId);
 
 }

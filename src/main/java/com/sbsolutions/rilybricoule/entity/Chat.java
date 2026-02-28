@@ -28,15 +28,19 @@ public class Chat {
     // Client
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
-    private User client;
+    private Client client;
 
     // Prestataire
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "prestataire_id", nullable = false)
-    private User prestataire;
+    private Prestataire prestataire;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+
+    @Column
+    private LocalDateTime archivedAt;
 
     @Column
     private LocalDateTime lastMessageAt;
@@ -44,9 +48,14 @@ public class Chat {
     @Column(nullable = false)
     private boolean active = true;
 
-    // Messages du chat
-    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Message> messages = new ArrayList<>();
+
+    public boolean isArchived() {
+        return archivedAt != null;
+    }
+
+
 
 
     public User getOtherUser(User sender) {

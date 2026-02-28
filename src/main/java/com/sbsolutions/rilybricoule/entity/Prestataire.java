@@ -39,6 +39,8 @@ public class Prestataire extends User {
 
     private Double longitude;
 
+
+
     @OneToMany(mappedBy = "prestataire", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @Builder.Default
     private Set<Service> services = new HashSet<>();
@@ -48,10 +50,10 @@ public class Prestataire extends User {
     private Set<Avis> avis = new HashSet<>();
 
     @Builder.Default
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean verified = false;
 
     @Builder.Default
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean not null default true")
     private boolean available = true;
 }
