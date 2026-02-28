@@ -21,8 +21,11 @@ public interface MessageRepository extends JpaRepository<Message,Long> {
        """)
     void markMessagesAsRead(Long chatId, Long receiverId);
 
+    @Query("SELECT m FROM Message m WHERE m.deleted = true AND m.deletedAt < :before")
+    List<Message> findByDeletedTrueAndDeletedAtBefore(@Param("before") LocalDateTime before);
 
-
+    @Query("SELECT m FROM Message m WHERE m.chat.id = :chatId AND m.deleted = true AND m.deletedAt > :after")
+    List<Message> findByChatIdAndDeletedTrueAndDeletedAtAfter(@Param("chatId") Long chatId, @Param("after") LocalDateTime after);
 
     // Active messages only (not deleted, not archived)
     @Query("SELECT m FROM Message m WHERE m.chat.id = :chatId AND m.deleted = false AND m.archivedAt IS NULL ORDER BY m.createdAt ASC")

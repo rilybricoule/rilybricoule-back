@@ -38,6 +38,10 @@ public class Chat {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+
+    @Column
+    private LocalDateTime archivedAt;
+
     @Column
     private LocalDateTime lastMessageAt;
 
@@ -46,6 +50,12 @@ public class Chat {
 
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Message> messages = new ArrayList<>();
+
+    public boolean isArchived() {
+        return archivedAt != null;
+    }
+
+
 
 
     public User getOtherUser(User sender) {

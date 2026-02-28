@@ -81,5 +81,19 @@ public class ChatController {
     }
 
 
+    @Operation(summary = "Archive conversation", description = "Moves the chat to archive. It will no longer appear in the main chat list.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation archived"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant")
+    })
+    @PutMapping("/{chatId}/archive")
+    public ResponseEntity<Void> archiveConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @RequestParam Long userId) {
+        chatService.archiveConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
+
 
 }
