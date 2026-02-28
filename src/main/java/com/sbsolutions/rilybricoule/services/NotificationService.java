@@ -20,10 +20,21 @@ public class NotificationService implements INotificationService {
     private final UserRepository userRepository;
     private final NotificationMapper notificationMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final InotificationPreferenceService notificationPreferenceService;
+
+
+    private boolean isAllowed(Long receiverId, NotificationType type) {
+        return notificationPreferenceService.canSend(receiverId, type);
+    }
+
 
     // Notify a new message
     @Override
     public NotificationOutputDto notifyNewMessage(User sender, User receiver, Message message) {
+        if (!isAllowed(receiver.getId(), NotificationType.MESSAGE)) {
+            return null;
+        }
+
         String preview = message.getContent().length() > 30
                 ? message.getContent().substring(0, 30) + "..."
                 : message.getContent();
@@ -44,27 +55,28 @@ public class NotificationService implements INotificationService {
 
     @Override
     public NotificationOutputDto notifyReservation(Client client, Reservation reservation) {
-        // Create DTO instance
+        Long receiverId = reservation.getPrestataire().getId();
+        if (!isAllowed(receiverId, NotificationType.RESERVATION)) {
+            return null;
+        }
+
         NotificationInputDto inputDto = new NotificationInputDto();
         inputDto.setContenu("New reservation from " + client.getFirstName() + " " + client.getLastName()
                 + " for reservation ID: " + reservation.getId());
         inputDto.setType(NotificationType.RESERVATION);
-        inputDto.setPrestataireId(reservation.getPrestataire().getId());
-        inputDto.setDate(null);
+        inputDto.setPrestataireId(receiverId);
 
-        // Convert DTO -> entity and save
-        Notification notification = notificationMapper.toEntity(inputDto, reservation.getPrestataire());
-        Notification saved = notificationRepository.save(notification);
-
-        NotificationOutputDto dto = notificationMapper.toDto(saved);
-        pushNotificationToUser(reservation.getPrestataire().getId(), dto);
-        return dto;
+        return createNotification(inputDto);
     }
 
 
     // Create a notification from input DTO
     @Override
     public NotificationOutputDto createNotification(NotificationInputDto inputDto) {
+        if (inputDto.getType() != null && !isAllowed(inputDto.getPrestataireId(), inputDto.getType())) {
+            return null;
+        }
+
         // Use the inputDto instance, not the class
         User receiver = userRepository.findById(inputDto.getPrestataireId())
                 .orElseThrow(() -> new RuntimeException(

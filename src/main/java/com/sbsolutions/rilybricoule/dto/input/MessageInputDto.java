@@ -20,5 +20,8 @@ public class MessageInputDto {
 
     private Long senderId;
 
+    private MessageType messageType; // TEXT/IMAGE/AUDIO/FILE
 
+
+    private String mediaUrl;         // URL returned by upload
 }

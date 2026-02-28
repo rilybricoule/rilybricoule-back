@@ -80,6 +80,46 @@ public class ChatController {
         return ResponseEntity.ok(output);
     }
 
+    @Operation(summary = "Get active chats by user")
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<ChatOutputDto>> getChatsByUser(@PathVariable Long userId) {
+        return ResponseEntity.ok(chatService.getChatsByUserId(userId));
+    }
+
+    @Operation(summary = "Pin conversation", description = "Pins the chat for the requesting participant.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation pinned"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant")
+    })
+    @PutMapping("/{chatId}/pin")
+    public ResponseEntity<Void> pinConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @Parameter(description = "User ID requesting pin") @RequestParam Long userId) {
+        chatService.pinConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/purge-deleted")
+    public ResponseEntity<Integer> purgeDeletedChats() {
+        int count = messageService.purgeDeletedMessagesOlderThanSevenDays();
+        return ResponseEntity.ok(count);
+    }
+
+
+    @Operation(summary = "Unpin conversation", description = "Removes pin from the chat for the requesting participant.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation unpinned"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant")
+    })
+    @PutMapping("/{chatId}/unpin")
+    public ResponseEntity<Void> unpinConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @Parameter(description = "User ID requesting unpin") @RequestParam Long userId) {
+        chatService.unpinConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
 
     @Operation(summary = "Archive conversation", description = "Moves the chat to archive. It will no longer appear in the main chat list.")
     @ApiResponses(value = {
@@ -94,6 +134,93 @@ public class ChatController {
         chatService.archiveConversation(chatId, userId);
         return ResponseEntity.ok().build();
     }
+
+    @Operation(
+            summary = "Unarchive conversation",
+            description = "Restores an archived chat to the active chat list for the requesting participant."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation unarchived"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant")
+    })
+    @PutMapping("/{chatId}/unarchive")
+    public ResponseEntity<Void> unarchiveConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @Parameter(description = "User ID requesting unarchive") @RequestParam Long userId) {
+        chatService.unarchiveConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(
+            summary = "Restore deleted conversation",
+            description = "Restores a soft-deleted chat for the requesting participant if deletion was within the last 7 days."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation restored"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant"),
+            @ApiResponse(responseCode = "409", description = "Restore window expired")
+    })
+    @PutMapping("/{chatId}/restore")
+    public ResponseEntity<Void> restoreDeletedConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @Parameter(description = "User ID requesting restore") @RequestParam Long userId) {
+        chatService.restoreDeletedConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
+
+
+
+
+
+    @Operation(
+            summary = "Delete conversation",
+            description = "Permanently deletes the chat and all its messages. Only a participant can delete."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Conversation deleted"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant")
+    })
+    @DeleteMapping("/{chatId}")
+    public ResponseEntity<Void> deleteConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @Parameter(description = "User ID requesting deletion") @RequestParam Long userId) {
+        chatService.deleteConversation(chatId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Disable conversation", description = "Disables the chat for the given user.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation disabled"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant")
+    })
+    @PutMapping("/{chatId}/disable")
+    public ResponseEntity<Void> disableConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @RequestParam Long userId) {
+        chatService.disableConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Enable conversation", description = "Re-enables the chat for the given user.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation enabled"),
+            @ApiResponse(responseCode = "404", description = "Chat not found"),
+            @ApiResponse(responseCode = "403", description = "Not a participant")
+    })
+    @PutMapping("/{chatId}/enable")
+    public ResponseEntity<Void> enableConversation(
+            @Parameter(description = "Chat ID") @PathVariable Long chatId,
+            @RequestParam Long userId) {
+        chatService.enableConversation(chatId, userId);
+        return ResponseEntity.ok().build();
+    }
+
+
+
 
 
 }

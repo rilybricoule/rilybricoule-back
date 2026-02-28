@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface IMessageService {
 
-    MessageOutputDto sendMessage(Long chatId, Long senderId, String content);
+    MessageOutputDto sendMessage(Long chatId, Long senderId, MessageInputDto inputDto);
 
     MessageOutputDto saveMessage(Long chatId, Long senderId, MessageInputDto inputDto);
 
