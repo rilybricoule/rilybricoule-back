@@ -18,6 +18,7 @@ public class NotificationOutputDto {
     private LocalDateTime date;      // date de création
     private NotificationType type;
     private  boolean vu ;
-    private  String receiverId;
+    private  Long receiverId;
     private String receiverName;
+
 }

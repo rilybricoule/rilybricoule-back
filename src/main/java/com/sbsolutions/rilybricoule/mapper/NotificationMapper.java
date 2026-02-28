@@ -5,7 +5,6 @@ import com.sbsolutions.rilybricoule.dto.input.NotificationInputDto;
 import com.sbsolutions.rilybricoule.dto.output.NotificationOutputDto;
 import com.sbsolutions.rilybricoule.entity.Notification;
 import com.sbsolutions.rilybricoule.entity.NotificationType;
-import com.sbsolutions.rilybricoule.entity.Prestataire;
 import com.sbsolutions.rilybricoule.entity.User;
 import org.springframework.stereotype.Component;
 
@@ -36,9 +35,13 @@ public class NotificationMapper {
         dto.setType(notification.getType());
         dto.setDate(notification.getDate());
         dto.setVu(notification.isVu());
-        dto.setReceiverName(notification.getReceiver().getFirstName()+ " " +notification.getReceiver().getLastName());
-        dto.setReceiverName(notification.getReceiver().getFirstName() + " " +
-                notification.getReceiver().getLastName());
+        if (notification.getReceiver() != null) {
+            dto.setReceiverId(notification.getReceiver().getId());
+            dto.setReceiverName(
+                    notification.getReceiver().getFirstName() + " " +
+                    notification.getReceiver().getLastName()
+            );
+        }
         return dto;
     }
 

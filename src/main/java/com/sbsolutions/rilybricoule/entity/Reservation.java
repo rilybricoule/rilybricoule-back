@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "reservations")
@@ -59,6 +60,9 @@ public class Reservation {
     
     @OneToOne(mappedBy = "reservation", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY, optional = true)
     private Paiement paiement;
+
+    @Column
+    private LocalDateTime cancelledAt;
     
     public enum ReservationStatus {
         PENDING_PAYMENT, CONFIRMED, COMPLETED, CANCELLED
