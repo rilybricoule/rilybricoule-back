@@ -1,5 +1,6 @@
 package com.sbsolutions.rilybricoule.dto.output;
 
+import com.sbsolutions.rilybricoule.entity.MessageType;
 import com.sbsolutions.rilybricoule.entity.User;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -24,8 +25,11 @@ public class MessageOutputDto {
 
     private LocalDateTime createdAt;
 
+    private MessageType messageType;
 
-    private String imageUrl;
+    private String mediaUrl;
+
+
 
     private String receiverName;
 

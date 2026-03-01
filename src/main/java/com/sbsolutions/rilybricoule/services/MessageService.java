@@ -33,11 +33,11 @@ public class MessageService implements IMessageService {
     private final INotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
     private static final int RESTORE_DAYS = 7;
-
+    private final BlockService blockService;
 
     @Override
-    public MessageOutputDto sendMessage(Long chatId, Long senderId, String content) {
-        System.out.println("chatId = " + chatId);
+    @Transactional
+    public MessageOutputDto sendMessage(Long chatId, Long senderId, MessageInputDto inputDto) {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new RuntimeException("Chat not found"));
 
@@ -45,12 +45,9 @@ public class MessageService implements IMessageService {
             throw new IllegalStateException("Chat is closed");
         }
 
-
-        MessageInputDto inputDto = new MessageInputDto();
+        // enforce path params into dto
         inputDto.setChatId(chatId);
         inputDto.setSenderId(senderId);
-        inputDto.setContent(content);
-
 
         return saveMessage(chatId, senderId, inputDto);
     }
@@ -111,32 +108,62 @@ public class MessageService implements IMessageService {
     @Override
     @Transactional
     public MessageOutputDto saveMessage(Long chatId, Long senderId, MessageInputDto inputDto) {
-        // Fetch the chat by ID
+        // Fetch chat
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new RuntimeException("Chat not found with id " + chatId));
 
-        // Fetch the sender
+        // Fetch sender
         User sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new RuntimeException("Sender not found with id " + senderId));
 
-        // Determine the receiver using the helper in Chat entity
+        // Determine receiver
         User receiver = chat.getOtherUser(sender);
 
-        // Build the message entity
+        // Resolve message type (backward compatible default)
+        MessageType type = inputDto.getMessageType() != null ? inputDto.getMessageType() : MessageType.TEXT;
+
+        // Normalize values
+        String content = inputDto.getContent() != null ? inputDto.getContent().trim() : null;
+        String mediaUrl = inputDto.getMediaUrl() != null ? inputDto.getMediaUrl().trim() : null;
+
+        // Validate payload by type
+        switch (type) {
+            case TEXT -> {
+                if (content == null || content.isEmpty()) {
+                    throw new IllegalArgumentException("TEXT message requires non-empty content");
+                }
+            }
+            case IMAGE, AUDIO, FILE -> {
+                if (mediaUrl == null || mediaUrl.isEmpty()) {
+                    throw new IllegalArgumentException(type + " message requires mediaUrl");
+                }
+            }
+            case SYSTEM -> {
+                // Optional rule: block user-created SYSTEM messages
+                throw new IllegalArgumentException("SYSTEM messages cannot be sent from this endpoint");
+            }
+            default -> throw new IllegalArgumentException("Unsupported message type: " + type);
+        }
+
+        blockService.assertMessagingAllowed(sender.getId(), receiver.getId());
+
+
+        // Build entity
         Message message = Message.builder()
                 .chat(chat)
                 .sender(sender)
                 .receiver(receiver)
-                .content(inputDto.getContent())
+                .content(content)
                 .read(false)
-                .messageType(MessageType.TEXT)
+                .messageType(type)
+                // If your entity still uses imageUrl, map mediaUrl into it for now:
+                .mediaUrl(mediaUrl)
                 .build();
 
-        // Save the message
+        // Save and notify
         Message saved = messageRepository.save(message);
         notificationService.notifyNewMessage(sender, receiver, saved);
 
-        // Push to WebSocket so subscribers get the message in real time
         MessageOutputDto dto = messageMapper.toDto(saved);
         messagingTemplate.convertAndSend("/topic/chat/" + chatId, dto);
 

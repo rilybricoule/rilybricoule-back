@@ -14,6 +14,21 @@ public interface ChatRepository extends JpaRepository<Chat,Long> {
     Optional<Chat> findByClientIdAndPrestataireIdAndReservationId(Long senderId, Long receiverId,Long reservationId);
 
 
+
+    @Query("""
+SELECT c FROM Chat c
+WHERE (
+   (c.client.id = :userId AND c.deletedByClientAt IS NULL)
+   OR
+   (c.prestataire.id = :userId AND c.deletedByPrestataireAt IS NULL)
+)
+AND c.archivedAt IS NULL
+AND c.active = true
+ORDER BY c.lastMessageAt DESC NULLS LAST, c.createdAt DESC
+""")
+    List<Chat> findActivechatsByUserId(@Param("userId") Long userId);
+
+
     // Add this method (for when you list "my chats" — only non-archived)
     @Query("SELECT c FROM Chat c WHERE (c.client.id = :userId OR c.prestataire.id = :userId) AND c.archivedAt IS NULL")
     List<Chat> findActiveByUserId(@Param("userId") Long userId);

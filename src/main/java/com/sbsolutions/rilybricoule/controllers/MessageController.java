@@ -42,7 +42,7 @@ public class MessageController {
         MessageOutputDto output = messageService.sendMessage(
                 dto.getChatId(),
                 dto.getSenderId(),
-                dto.getContent()
+                dto
         );
         return ResponseEntity.ok(output);
     }
