@@ -24,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -46,33 +46,20 @@ class AuthControllerTest {
     class RegisterEndpoint {
 
         @Test
-        @DisplayName("Valid register request -> 200 with JWT")
-        void register_ValidRequest_ReturnsJwt() throws Exception {
+        @DisplayName("Valid register request -> 200 with message")
+        void register_ValidRequest_ReturnsMessage() throws Exception {
             RegisterRequest request = new RegisterRequest(
                     "Ahmed", "Benali", "ahmed@test.com", "password123",
                     "0612345678", "CLIENT", null, null, null
             );
 
-            JwtResponse response = JwtResponse.builder()
-                    .accessToken("jwt-token-123")
-                    .refreshToken("refresh-token-123")
-                    .email("ahmed@test.com")
-                    .firstName("Ahmed")
-                    .lastName("Benali")
-                    .roles(List.of("ROLE_CLIENT"))
-                    .build();
-
-            when(authUseCase.register(any(RegisterRequest.class), any(), any())).thenReturn(response);
+            doNothing().when(authUseCase).register(any(RegisterRequest.class), any(), any());
 
             mockMvc.perform(post("/api/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.accessToken").value("jwt-token-123"))
-                    .andExpect(jsonPath("$.refreshToken").value("refresh-token-123"))
-                    .andExpect(jsonPath("$.email").value("ahmed@test.com"))
-                    .andExpect(jsonPath("$.firstName").value("Ahmed"))
-                    .andExpect(jsonPath("$.roles[0]").value("ROLE_CLIENT"));
+                    .andExpect(jsonPath("$.message").value("Registration successful. Please check your email for the verification code."));
         }
 
         @Test
@@ -153,8 +140,8 @@ class AuthControllerTest {
                     "0612345678", "CLIENT", null, null, null
             );
 
-            when(authUseCase.register(any(RegisterRequest.class), any(), any()))
-                    .thenThrow(new EmailAlreadyExistsException("existing@test.com"));
+            doThrow(new EmailAlreadyExistsException("existing@test.com"))
+                    .when(authUseCase).register(any(RegisterRequest.class), any(), any());
 
             mockMvc.perform(post("/api/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)

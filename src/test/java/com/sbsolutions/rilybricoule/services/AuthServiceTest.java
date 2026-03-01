@@ -14,6 +14,9 @@ import com.sbsolutions.rilybricoule.security.domain.model.RefreshToken;
 import com.sbsolutions.rilybricoule.security.domain.port.out.AuditLogPort;
 import com.sbsolutions.rilybricoule.security.domain.port.out.RefreshTokenRepositoryPort;
 import com.sbsolutions.rilybricoule.security.domain.port.out.TokenProviderPort;
+import com.sbsolutions.rilybricoule.services.OtpService;
+import com.sbsolutions.rilybricoule.entity.OtpPurpose;
+import com.sbsolutions.rilybricoule.security.infrastructure.oauth2.OAuth2TokenVerifierFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,6 +54,8 @@ class AuthServiceTest {
     @Mock private AuditLogPort auditLog;
     @Mock private AuthenticationManager authenticationManager;
     @Mock private UserDetailsService userDetailsService;
+    @Mock private OtpService otpService;
+    @Mock private OAuth2TokenVerifierFactory oAuth2TokenVerifierFactory;
 
     @InjectMocks
     private AuthApplicationService authService;
@@ -90,32 +95,11 @@ class AuthServiceTest {
                 return u;
             });
 
-            UserDetails mockUserDetails = new org.springframework.security.core.userdetails.User(
-                    "ahmed@test.com", "encodedPassword",
-                    Set.of(new SimpleGrantedAuthority("ROLE_CLIENT"))
-            );
-            when(userDetailsService.loadUserByUsername("ahmed@test.com")).thenReturn(mockUserDetails);
-            when(tokenProvider.generateAccessToken(mockUserDetails)).thenReturn("jwt-token-123");
-
-            RefreshToken refreshToken = RefreshToken.builder()
-                    .token("refresh-uuid-123")
-                    .expiryDate(Instant.now().plusMillis(604800000))
-                    .build();
-            when(refreshTokenRepository.createRefreshToken(any(User.class))).thenReturn(refreshToken);
-
-            JwtResponse response = authService.register(request, "127.0.0.1", "TestAgent");
-
-            assertNotNull(response);
-            assertEquals("jwt-token-123", response.getAccessToken());
-            assertEquals("refresh-uuid-123", response.getRefreshToken());
-            assertEquals("ahmed@test.com", response.getEmail());
-            assertEquals("Ahmed", response.getFirstName());
-            assertEquals("Benali", response.getLastName());
-            assertTrue(response.getRoles().contains("ROLE_CLIENT"));
+            authService.register(request, "127.0.0.1", "TestAgent");
 
             verify(userRepository).save(any(Client.class));
             verify(passwordEncoder).encode("password123");
-            verify(auditLog).logRegister("ahmed@test.com", "127.0.0.1", "TestAgent");
+            verify(otpService).generateAndSendOtp("ahmed@test.com", OtpPurpose.EMAIL_VERIFICATION);
         }
 
         @Test
@@ -135,27 +119,10 @@ class AuthServiceTest {
                 return u;
             });
 
-            UserDetails mockUserDetails = new org.springframework.security.core.userdetails.User(
-                    "sara@test.com", "encodedPassword",
-                    Set.of(new SimpleGrantedAuthority("ROLE_PRESTATAIRE"))
-            );
-            when(userDetailsService.loadUserByUsername("sara@test.com")).thenReturn(mockUserDetails);
-            when(tokenProvider.generateAccessToken(mockUserDetails)).thenReturn("jwt-token-456");
-
-            RefreshToken refreshToken = RefreshToken.builder()
-                    .token("refresh-uuid-456")
-                    .expiryDate(Instant.now().plusMillis(604800000))
-                    .build();
-            when(refreshTokenRepository.createRefreshToken(any(User.class))).thenReturn(refreshToken);
-
-            JwtResponse response = authService.register(request, "127.0.0.1", "TestAgent");
-
-            assertNotNull(response);
-            assertEquals("jwt-token-456", response.getAccessToken());
-            assertEquals("sara@test.com", response.getEmail());
-            assertTrue(response.getRoles().contains("ROLE_PRESTATAIRE"));
+            authService.register(request, "127.0.0.1", "TestAgent");
 
             verify(userRepository).save(any(Prestataire.class));
+            verify(otpService).generateAndSendOtp("sara@test.com", OtpPurpose.EMAIL_VERIFICATION);
         }
 
         @Test
