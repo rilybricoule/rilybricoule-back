@@ -38,8 +38,8 @@ public class Message {
     @Column
     private LocalDateTime readAt;
 
-    @Column
-    private String imageUrl;
+    @Column(name = "media_url")
+    private String mediaUrl;
 
     @Column(nullable = false)
     private boolean read = false;

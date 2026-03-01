@@ -38,12 +38,32 @@ public class Chat {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Column
+    private LocalDateTime pinnedByClientAt;
+
+    @Column
+    private LocalDateTime pinnedByPrestataireAt;
 
     @Column
     private LocalDateTime archivedAt;
 
+
+    @Column
+    private LocalDateTime archivedByClientAt;
+
+    @Column
+    private LocalDateTime archivedByPrestataireAt;
+
+
     @Column
     private LocalDateTime lastMessageAt;
+
+    // NEW: soft-delete timestamps per participant
+    @Column
+    private LocalDateTime deletedByClientAt;
+
+    @Column
+    private LocalDateTime deletedByPrestataireAt;
 
     @Column(nullable = false)
     private boolean active = true;
@@ -51,12 +71,12 @@ public class Chat {
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Message> messages = new ArrayList<>();
 
-    public boolean isArchived() {
-        return archivedAt != null;
+
+
+    // Optional helper: both sides deleted => eligible for hard delete cleanup
+    public boolean isDeletedForBothUsers() {
+        return deletedByClientAt != null && deletedByPrestataireAt != null;
     }
-
-
-
 
     public User getOtherUser(User sender) {
         if (sender.getId().equals(client.getId())) {
