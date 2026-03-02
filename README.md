@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 # rilybricoule-back
-=======
-# JWT Spring Boot Auth
 
 A minimal Spring Boot project implementing JWT-based authentication and authorization with three roles: CLIENT, PROVIDER, and ADMIN.
 
@@ -97,4 +94,3 @@ The `users` table is created automatically with the following columns:
 - email (VARCHAR, UNIQUE)
 - password (VARCHAR)
 - role (VARCHAR)
->>>>>>> 2cabcbd (Implement Auth: Client / Prestataire / Admin)

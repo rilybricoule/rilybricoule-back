@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class NotificationController {
 
     // ✅ Get notifications for a user
     @GetMapping("/user/{userId}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Get notifications for a user",
             description = "Returns a list of notifications for the given user ID")
     public ResponseEntity<List<NotificationOutputDto>> getNotificationsForUser(
@@ -34,6 +36,7 @@ public class NotificationController {
 
     // ✅ Mark as read
     @PutMapping("/{notificationId}/read")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Mark notification as read",
             description = "Marks a notification as read by its ID")
     public ResponseEntity<NotificationOutputDto> markAsRead(
@@ -47,6 +50,7 @@ public class NotificationController {
 
     // ✅ Delete all notifications for user
     @DeleteMapping("/user/{userId}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Delete all notifications for a user",
             description = "Deletes all notifications for the given user ID")
     public ResponseEntity<Void> deleteAllNotificationsForUser(

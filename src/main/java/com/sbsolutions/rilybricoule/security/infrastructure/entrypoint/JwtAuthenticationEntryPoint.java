@@ -1,4 +1,4 @@
-package com.sbsolutions.rilybricoule.security;
+package com.sbsolutions.rilybricoule.security.infrastructure.entrypoint;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,10 +13,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Custom entry point that returns a JSON 401 response
- * when an unauthenticated request hits a protected endpoint.
- */
 @Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 

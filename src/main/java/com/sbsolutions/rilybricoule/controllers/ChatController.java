@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
@@ -41,6 +42,7 @@ public class ChatController {
             @ApiResponse(responseCode = "400", description = "Invalid input")
     })
     @PostMapping("/start")
+    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
     public ResponseEntity<ChatOutputDto> startChat(@RequestBody ChatInputDto dto) {
         // Build minimal entity references from IDs
         Chat chat = chatService.startOrGetChat(dto.getClientId(), dto.getPrestataireId(), dto.getReservationId());

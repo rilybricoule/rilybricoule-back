@@ -5,18 +5,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class JwtResponse {
+public class SocialUserInfo {
 
-    private String accessToken;
-    private String refreshToken;
     private String email;
     private String firstName;
     private String lastName;
-    private List<String> roles;
+    private String providerId;
+    private String photoUrl;
 }

@@ -1,4 +1,4 @@
-package com.sbsolutions.rilybricoule.security;
+package com.sbsolutions.rilybricoule.security.infrastructure.service;
 
 import com.sbsolutions.rilybricoule.entity.User;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
@@ -28,7 +28,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
-                user.getPassword(),
+                user.getPassword() != null ? user.getPassword() : "",
                 user.isEnabled(),
                 true,
                 true,

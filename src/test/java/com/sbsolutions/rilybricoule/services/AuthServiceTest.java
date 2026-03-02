@@ -5,10 +5,18 @@ import com.sbsolutions.rilybricoule.dto.LoginRequest;
 import com.sbsolutions.rilybricoule.dto.RegisterRequest;
 import com.sbsolutions.rilybricoule.entity.*;
 import com.sbsolutions.rilybricoule.exceptions.EmailAlreadyExistsException;
-import com.sbsolutions.rilybricoule.exceptions.InvalidTokenException;
+import com.sbsolutions.rilybricoule.exceptions.RefreshTokenExpiredException;
+import com.sbsolutions.rilybricoule.exceptions.RefreshTokenNotFoundException;
 import com.sbsolutions.rilybricoule.repository.RoleRepository;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
-import com.sbsolutions.rilybricoule.security.JwtService;
+import com.sbsolutions.rilybricoule.security.application.AuthApplicationService;
+import com.sbsolutions.rilybricoule.security.domain.model.RefreshToken;
+import com.sbsolutions.rilybricoule.security.domain.port.out.AuditLogPort;
+import com.sbsolutions.rilybricoule.security.domain.port.out.RefreshTokenRepositoryPort;
+import com.sbsolutions.rilybricoule.security.domain.port.out.TokenProviderPort;
+import com.sbsolutions.rilybricoule.services.OtpService;
+import com.sbsolutions.rilybricoule.entity.OtpPurpose;
+import com.sbsolutions.rilybricoule.security.infrastructure.oauth2.OAuth2TokenVerifierFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -21,12 +29,12 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 
@@ -35,18 +43,22 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("AuthService Unit Tests")
+@DisplayName("AuthApplicationService Unit Tests")
 class AuthServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private RoleRepository roleRepository;
     @Mock private PasswordEncoder passwordEncoder;
-    @Mock private JwtService jwtService;
+    @Mock private TokenProviderPort tokenProvider;
+    @Mock private RefreshTokenRepositoryPort refreshTokenRepository;
+    @Mock private AuditLogPort auditLog;
     @Mock private AuthenticationManager authenticationManager;
     @Mock private UserDetailsService userDetailsService;
+    @Mock private OtpService otpService;
+    @Mock private OAuth2TokenVerifierFactory oAuth2TokenVerifierFactory;
 
     @InjectMocks
-    private AuthService authService;
+    private AuthApplicationService authService;
 
     private Role clientRole;
     private Role prestataireRole;
@@ -83,24 +95,11 @@ class AuthServiceTest {
                 return u;
             });
 
-            UserDetails mockUserDetails = new org.springframework.security.core.userdetails.User(
-                    "ahmed@test.com", "encodedPassword",
-                    Set.of(new SimpleGrantedAuthority("ROLE_CLIENT"))
-            );
-            when(userDetailsService.loadUserByUsername("ahmed@test.com")).thenReturn(mockUserDetails);
-            when(jwtService.generateToken(mockUserDetails)).thenReturn("jwt-token-123");
-
-            JwtResponse response = authService.register(request);
-
-            assertNotNull(response);
-            assertEquals("jwt-token-123", response.getAccessToken());
-            assertEquals("ahmed@test.com", response.getEmail());
-            assertEquals("Ahmed", response.getFirstName());
-            assertEquals("Benali", response.getLastName());
-            assertTrue(response.getRoles().contains("ROLE_CLIENT"));
+            authService.register(request, "127.0.0.1", "TestAgent");
 
             verify(userRepository).save(any(Client.class));
             verify(passwordEncoder).encode("password123");
+            verify(otpService).generateAndSendOtp("ahmed@test.com", OtpPurpose.EMAIL_VERIFICATION);
         }
 
         @Test
@@ -120,21 +119,10 @@ class AuthServiceTest {
                 return u;
             });
 
-            UserDetails mockUserDetails = new org.springframework.security.core.userdetails.User(
-                    "sara@test.com", "encodedPassword",
-                    Set.of(new SimpleGrantedAuthority("ROLE_PRESTATAIRE"))
-            );
-            when(userDetailsService.loadUserByUsername("sara@test.com")).thenReturn(mockUserDetails);
-            when(jwtService.generateToken(mockUserDetails)).thenReturn("jwt-token-456");
-
-            JwtResponse response = authService.register(request);
-
-            assertNotNull(response);
-            assertEquals("jwt-token-456", response.getAccessToken());
-            assertEquals("sara@test.com", response.getEmail());
-            assertTrue(response.getRoles().contains("ROLE_PRESTATAIRE"));
+            authService.register(request, "127.0.0.1", "TestAgent");
 
             verify(userRepository).save(any(Prestataire.class));
+            verify(otpService).generateAndSendOtp("sara@test.com", OtpPurpose.EMAIL_VERIFICATION);
         }
 
         @Test
@@ -148,7 +136,7 @@ class AuthServiceTest {
             when(userRepository.existsByEmail("existing@test.com")).thenReturn(true);
 
             assertThrows(EmailAlreadyExistsException.class,
-                    () -> authService.register(request));
+                    () -> authService.register(request, "127.0.0.1", "TestAgent"));
 
             verify(userRepository, never()).save(any());
         }
@@ -166,7 +154,7 @@ class AuthServiceTest {
             when(roleRepository.findByRoleName(RoleName.ROLE_CLIENT)).thenReturn(Optional.empty());
 
             assertThrows(RuntimeException.class,
-                    () -> authService.register(request));
+                    () -> authService.register(request, "127.0.0.1", "TestAgent"));
 
             verify(userRepository, never()).save(any());
         }
@@ -199,16 +187,25 @@ class AuthServiceTest {
                     Set.of(new SimpleGrantedAuthority("ROLE_CLIENT"))
             );
             when(userDetailsService.loadUserByUsername("ahmed@test.com")).thenReturn(mockUserDetails);
-            when(jwtService.generateToken(mockUserDetails)).thenReturn("jwt-login-token");
+            when(tokenProvider.generateAccessToken(mockUserDetails)).thenReturn("jwt-login-token");
 
-            JwtResponse response = authService.login(request);
+            RefreshToken refreshToken = RefreshToken.builder()
+                    .token("refresh-uuid-login")
+                    .expiryDate(Instant.now().plusMillis(604800000))
+                    .build();
+            when(refreshTokenRepository.createRefreshToken(any(User.class))).thenReturn(refreshToken);
+
+            JwtResponse response = authService.login(request, "127.0.0.1", "TestAgent");
 
             assertNotNull(response);
             assertEquals("jwt-login-token", response.getAccessToken());
+            assertEquals("refresh-uuid-login", response.getRefreshToken());
             assertEquals("ahmed@test.com", response.getEmail());
             assertEquals("Ahmed", response.getFirstName());
 
             verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+            verify(refreshTokenRepository).revokeAllByUser(user);
+            verify(auditLog).logLoginSuccess("ahmed@test.com", "127.0.0.1", "TestAgent");
         }
 
         @Test
@@ -220,10 +217,11 @@ class AuthServiceTest {
                     .thenThrow(new BadCredentialsException("Bad credentials"));
 
             BadCredentialsException ex = assertThrows(BadCredentialsException.class,
-                    () -> authService.login(request));
+                    () -> authService.login(request, "127.0.0.1", "TestAgent"));
 
             assertEquals("Invalid email or password", ex.getMessage());
             verify(userRepository, never()).findByEmail(anyString());
+            verify(auditLog).logLoginFailure(eq("ahmed@test.com"), eq("127.0.0.1"), eq("TestAgent"), anyString());
         }
 
         @Test
@@ -235,7 +233,7 @@ class AuthServiceTest {
                     .thenThrow(new BadCredentialsException("Bad credentials"));
 
             assertThrows(BadCredentialsException.class,
-                    () -> authService.login(request));
+                    () -> authService.login(request, "127.0.0.1", "TestAgent"));
         }
     }
 
@@ -244,56 +242,74 @@ class AuthServiceTest {
     class RefreshTokenTests {
 
         @Test
-        @DisplayName("Refresh - valid token -> new token")
+        @DisplayName("Refresh - valid token -> new tokens")
         void refreshToken_ValidToken_Success() {
-            String oldToken = "old-jwt-token";
-            String authHeader = "Bearer " + oldToken;
+            Client user = new Client();
+            user.setId(1L);
+            user.setEmail("ahmed@test.com");
+            user.setFirstName("Ahmed");
+            user.setLastName("Benali");
+            user.setRoles(Set.of(clientRole));
 
-            when(jwtService.extractEmail(oldToken)).thenReturn("ahmed@test.com");
+            RefreshToken existingToken = RefreshToken.builder()
+                    .token("old-refresh-token")
+                    .user(user)
+                    .expiryDate(Instant.now().plusMillis(604800000))
+                    .revoked(false)
+                    .build();
+
+            when(refreshTokenRepository.findByToken("old-refresh-token")).thenReturn(Optional.of(existingToken));
 
             UserDetails mockUserDetails = new org.springframework.security.core.userdetails.User(
                     "ahmed@test.com", "encodedPassword",
                     Set.of(new SimpleGrantedAuthority("ROLE_CLIENT"))
             );
             when(userDetailsService.loadUserByUsername("ahmed@test.com")).thenReturn(mockUserDetails);
-            when(jwtService.isTokenValid(oldToken, mockUserDetails)).thenReturn(true);
-            when(jwtService.generateToken(mockUserDetails)).thenReturn("new-jwt-token");
+            when(tokenProvider.generateAccessToken(mockUserDetails)).thenReturn("new-jwt-token");
 
-            String newToken = authService.refreshToken(authHeader);
+            RefreshToken newRefreshToken = RefreshToken.builder()
+                    .token("new-refresh-token")
+                    .expiryDate(Instant.now().plusMillis(604800000))
+                    .build();
+            when(refreshTokenRepository.createRefreshToken(user)).thenReturn(newRefreshToken);
 
-            assertEquals("new-jwt-token", newToken);
+            JwtResponse response = authService.refreshToken("old-refresh-token", "127.0.0.1", "TestAgent");
+
+            assertEquals("new-jwt-token", response.getAccessToken());
+            assertEquals("new-refresh-token", response.getRefreshToken());
+            verify(refreshTokenRepository).revokeToken(existingToken);
+            verify(auditLog).logTokenRefresh("ahmed@test.com", "127.0.0.1", "TestAgent");
         }
 
         @Test
-        @DisplayName("Refresh - invalid header -> InvalidTokenException")
-        void refreshToken_InvalidHeader_ThrowsException() {
-            assertThrows(InvalidTokenException.class,
-                    () -> authService.refreshToken("InvalidHeader"));
+        @DisplayName("Refresh - token not found -> RefreshTokenNotFoundException")
+        void refreshToken_NotFound_ThrowsException() {
+            when(refreshTokenRepository.findByToken("nonexistent-token")).thenReturn(Optional.empty());
+
+            assertThrows(RefreshTokenNotFoundException.class,
+                    () -> authService.refreshToken("nonexistent-token", "127.0.0.1", "TestAgent"));
         }
 
         @Test
-        @DisplayName("Refresh - null header -> InvalidTokenException")
-        void refreshToken_NullHeader_ThrowsException() {
-            assertThrows(InvalidTokenException.class,
-                    () -> authService.refreshToken(null));
-        }
-
-        @Test
-        @DisplayName("Refresh - expired token -> InvalidTokenException")
+        @DisplayName("Refresh - expired token -> RefreshTokenExpiredException")
         void refreshToken_ExpiredToken_ThrowsException() {
-            String authHeader = "Bearer expired-token";
+            Client user = new Client();
+            user.setId(1L);
+            user.setEmail("ahmed@test.com");
 
-            when(jwtService.extractEmail("expired-token")).thenReturn("ahmed@test.com");
+            RefreshToken expiredToken = RefreshToken.builder()
+                    .token("expired-refresh-token")
+                    .user(user)
+                    .expiryDate(Instant.now().minusMillis(1000))
+                    .revoked(false)
+                    .build();
 
-            UserDetails mockUserDetails = new org.springframework.security.core.userdetails.User(
-                    "ahmed@test.com", "encodedPassword",
-                    Set.of(new SimpleGrantedAuthority("ROLE_CLIENT"))
-            );
-            when(userDetailsService.loadUserByUsername("ahmed@test.com")).thenReturn(mockUserDetails);
-            when(jwtService.isTokenValid("expired-token", mockUserDetails)).thenReturn(false);
+            when(refreshTokenRepository.findByToken("expired-refresh-token")).thenReturn(Optional.of(expiredToken));
 
-            assertThrows(InvalidTokenException.class,
-                    () -> authService.refreshToken(authHeader));
+            assertThrows(RefreshTokenExpiredException.class,
+                    () -> authService.refreshToken("expired-refresh-token", "127.0.0.1", "TestAgent"));
+
+            verify(refreshTokenRepository).revokeToken(expiredToken);
         }
     }
 
@@ -304,57 +320,39 @@ class AuthServiceTest {
         @Test
         @DisplayName("Validate - valid token -> true")
         void validateToken_Valid_ReturnsTrue() {
-            String authHeader = "Bearer valid-token";
-
-            when(jwtService.extractEmail("valid-token")).thenReturn("ahmed@test.com");
+            when(tokenProvider.extractEmail("valid-token")).thenReturn("ahmed@test.com");
 
             UserDetails mockUserDetails = new org.springframework.security.core.userdetails.User(
                     "ahmed@test.com", "encodedPassword",
                     Set.of(new SimpleGrantedAuthority("ROLE_CLIENT"))
             );
             when(userDetailsService.loadUserByUsername("ahmed@test.com")).thenReturn(mockUserDetails);
-            when(jwtService.isTokenValid("valid-token", mockUserDetails)).thenReturn(true);
+            when(tokenProvider.isTokenValid("valid-token", mockUserDetails)).thenReturn(true);
 
-            assertTrue(authService.validateToken(authHeader));
+            assertTrue(authService.validateToken("valid-token"));
         }
 
         @Test
         @DisplayName("Validate - invalid token -> false")
         void validateToken_Invalid_ReturnsFalse() {
-            String authHeader = "Bearer bad-token";
-
-            when(jwtService.extractEmail("bad-token")).thenReturn("ahmed@test.com");
+            when(tokenProvider.extractEmail("bad-token")).thenReturn("ahmed@test.com");
 
             UserDetails mockUserDetails = new org.springframework.security.core.userdetails.User(
                     "ahmed@test.com", "encodedPassword",
                     Set.of(new SimpleGrantedAuthority("ROLE_CLIENT"))
             );
             when(userDetailsService.loadUserByUsername("ahmed@test.com")).thenReturn(mockUserDetails);
-            when(jwtService.isTokenValid("bad-token", mockUserDetails)).thenReturn(false);
+            when(tokenProvider.isTokenValid("bad-token", mockUserDetails)).thenReturn(false);
 
-            assertFalse(authService.validateToken(authHeader));
-        }
-
-        @Test
-        @DisplayName("Validate - no Bearer prefix -> false")
-        void validateToken_NoBearerPrefix_ReturnsFalse() {
-            assertFalse(authService.validateToken("just-a-token"));
-        }
-
-        @Test
-        @DisplayName("Validate - null header -> false")
-        void validateToken_NullHeader_ReturnsFalse() {
-            assertFalse(authService.validateToken(null));
+            assertFalse(authService.validateToken("bad-token"));
         }
 
         @Test
         @DisplayName("Validate - exception during validation -> false")
         void validateToken_Exception_ReturnsFalse() {
-            String authHeader = "Bearer crash-token";
+            when(tokenProvider.extractEmail("crash-token")).thenThrow(new RuntimeException("parse error"));
 
-            when(jwtService.extractEmail("crash-token")).thenThrow(new RuntimeException("parse error"));
-
-            assertFalse(authService.validateToken(authHeader));
+            assertFalse(authService.validateToken("crash-token"));
         }
     }
 }

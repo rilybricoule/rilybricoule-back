@@ -25,7 +25,6 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
     private String password;
 
     @Column(nullable = false)
@@ -37,6 +36,13 @@ public class User {
     private String phone;
 
     private String photoUrl;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    private String providerId;
 
     @Builder.Default
     @Column(nullable = false)

@@ -60,7 +60,7 @@ public class ClientController {
     }
     
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
     public ResponseEntity<?> updateClient(@PathVariable Long id, @RequestBody ClientDTO request) {
         Optional<Client> clientOpt = clientRepository.findById(id);
         if (clientOpt.isEmpty()) {

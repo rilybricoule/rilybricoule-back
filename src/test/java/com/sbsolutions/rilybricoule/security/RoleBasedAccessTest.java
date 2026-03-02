@@ -4,6 +4,7 @@ import com.sbsolutions.rilybricoule.mapper.CouponMapper;
 import com.sbsolutions.rilybricoule.repository.ClientRepository;
 import com.sbsolutions.rilybricoule.repository.CouponRepository;
 import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
+import com.sbsolutions.rilybricoule.security.domain.port.in.AuthUseCase;
 import com.sbsolutions.rilybricoule.services.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,7 +29,7 @@ class RoleBasedAccessTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean private AuthService authService;
+    @MockBean private AuthUseCase authUseCase;
     @MockBean private ClientRepository clientRepository;
     @MockBean private PrestaireRepository prestaireRepository;
     @MockBean private GeocodingService geocodingService;
@@ -136,12 +137,12 @@ class RoleBasedAccessTest {
 
         @Test
         @WithMockUser(roles = "CLIENT")
-        @DisplayName("PUT /api/clients/1 -> 403 (CLIENT blocked by @PreAuthorize - ADMIN only)")
-        void updateClient_AsClient_Forbidden() throws Exception {
+        @DisplayName("PUT /api/clients/1 -> allowed (CLIENT can update via @PreAuthorize)")
+        void updateClient_AsClient_Allowed() throws Exception {
             mockMvc.perform(put("/api/clients/1")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().is(not(403)));
         }
 
         @Test
@@ -164,10 +165,10 @@ class RoleBasedAccessTest {
 
         @Test
         @WithMockUser(roles = "CLIENT")
-        @DisplayName("GET /api/prestataires -> 403 (CLIENT blocked by @PreAuthorize - PRESTATAIRE/ADMIN only)")
-        void getPrestataires_AsClient_Forbidden() throws Exception {
+        @DisplayName("GET /api/prestataires -> 200 (CLIENT allowed via @PreAuthorize)")
+        void getPrestataires_AsClient_Allowed() throws Exception {
             mockMvc.perform(get("/api/prestataires"))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isOk());
         }
 
         @Test
@@ -261,12 +262,12 @@ class RoleBasedAccessTest {
 
         @Test
         @WithMockUser(roles = "PRESTATAIRE")
-        @DisplayName("PUT /api/prestataires/1 -> 403 (PRESTATAIRE blocked by @PreAuthorize - ADMIN only)")
-        void updatePrestataire_AsPrestataire_Forbidden() throws Exception {
+        @DisplayName("PUT /api/prestataires/1 -> allowed (PRESTATAIRE can update via @PreAuthorize)")
+        void updatePrestataire_AsPrestataire_Allowed() throws Exception {
             mockMvc.perform(put("/api/prestataires/1")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().is(not(403)));
         }
 
         @Test

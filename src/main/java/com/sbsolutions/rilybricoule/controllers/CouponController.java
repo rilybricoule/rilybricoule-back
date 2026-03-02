@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,6 +47,7 @@ public class CouponController {
      * @return ResponseEntity with created CouponDTO and 201 CREATED status
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CouponDTO> createCoupon(@Valid @RequestBody CouponDTO request) {
         Coupon coupon = couponMapper.toEntity(request);
         Coupon saved = couponRepository.save(coupon);
@@ -59,6 +61,7 @@ public class CouponController {
      * @return ResponseEntity with CouponDTO if found, 404 NOT_FOUND otherwise
      */
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getCoupon(@PathVariable Long id) {
         Optional<Coupon> coupon = couponRepository.findById(id);
         if (coupon.isEmpty()) {
@@ -73,6 +76,7 @@ public class CouponController {
      * @return ResponseEntity with list of all CouponDTOs
      */
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<CouponDTO>> getAllCoupons() {
         List<CouponDTO> coupons = couponRepository.findAll()
             .stream()
@@ -88,6 +92,7 @@ public class CouponController {
      * @return ResponseEntity with CouponDTO if valid, 404 NOT_FOUND otherwise
      */
     @GetMapping("/code/{code}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getCouponByCode(@PathVariable String code) {
         Optional<Coupon> coupon = couponService.findValidCoupon(code);
         if (coupon.isEmpty()) {
@@ -103,6 +108,7 @@ public class CouponController {
      * @return ResponseEntity with list of active CouponDTOs
      */
     @GetMapping("/active")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<CouponDTO>> getActiveCoupons() {
         List<CouponDTO> coupons = couponRepository.findByActiveTrueOrderByExpiryDateDesc()
             .stream()
@@ -119,6 +125,7 @@ public class CouponController {
      * @return ResponseEntity with updated CouponDTO if found, 404 NOT_FOUND otherwise
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateCoupon(@PathVariable Long id, @Valid @RequestBody CouponDTO request) {
         Optional<Coupon> couponOpt = couponRepository.findById(id);
         if (couponOpt.isEmpty()) {
@@ -138,6 +145,7 @@ public class CouponController {
      * @return ResponseEntity with 204 NO_CONTENT if deleted, 404 NOT_FOUND otherwise
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteCoupon(@PathVariable Long id) {
         if (!couponRepository.existsById(id)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Coupon not found");
