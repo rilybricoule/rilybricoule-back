@@ -10,6 +10,7 @@ import com.sbsolutions.rilybricoule.repository.ServiceRepository;
 import com.sbsolutions.rilybricoule.entity.Client;
 import com.sbsolutions.rilybricoule.entity.User;
 import com.sbsolutions.rilybricoule.repository.UserRepository;
+import com.sbsolutions.rilybricoule.repository.ServiceZoneRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.cache.annotation.Cacheable;
@@ -27,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.HashSet;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/prestataires")
@@ -38,6 +41,7 @@ public class PrestaireController {
     private final AvisRepository avisRepository;
     private final ServiceRepository serviceRepository;
     private final UserRepository userRepository;
+    private final ServiceZoneRepository serviceZoneRepository;
 
     @CacheEvict(value = "searchPrestataires", allEntries = true)
     @PostMapping
@@ -180,6 +184,18 @@ public class PrestaireController {
         final double userLng = lng;
         //prestataires dans le rayon
         List<Long> ids = prestaireRepository.findNearbyIds(userLat, userLng, radiusKm);
+        if (ids.isEmpty()) return List.of();
+
+        List<Long> inZone = serviceZoneRepository.findPrestataireIdsCoveringPoint(ids, userLat, userLng);
+
+        List<Long> noZones = serviceZoneRepository.findPrestataireIdsWithoutZones(ids);
+
+        java.util.Set<Long> allowed = new java.util.HashSet<>(inZone);
+
+        allowed.addAll(noZones);
+
+        ids = ids.stream().filter(allowed::contains).toList();
+
         if (ids.isEmpty()) return List.of();
 
         List<Prestataire> prestataires = prestaireRepository.findAllById(ids);

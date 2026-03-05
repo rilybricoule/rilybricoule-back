@@ -49,6 +49,10 @@ public class Prestataire extends User {
     @Builder.Default
     private Set<Avis> avis = new HashSet<>();
 
+    @OneToMany(mappedBy = "prestataire", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<ServiceZone> serviceZones = new HashSet<>();
+
     @Builder.Default
     @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean verified = false;
@@ -56,4 +60,5 @@ public class Prestataire extends User {
     @Builder.Default
     @Column(nullable = false, columnDefinition = "boolean not null default true")
     private boolean available = true;
+
 }

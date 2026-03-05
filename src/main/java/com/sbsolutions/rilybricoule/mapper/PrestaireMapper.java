@@ -59,6 +59,7 @@ public class PrestaireMapper {
             .address(dto.getAddress())
             .latitude(dto.getLatitude())
             .longitude(dto.getLongitude())
+
             .build();
     }
 
