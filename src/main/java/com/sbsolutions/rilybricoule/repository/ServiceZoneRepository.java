@@ -17,7 +17,7 @@ public interface ServiceZoneRepository extends JpaRepository<ServiceZone, Long> 
         WHERE sz.prestataire_id IN (:prestIds)
           AND ST_DWithin(
                 sz.center_geog,
-                ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                CAST(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326) AS geography),
                 sz.radius_meters
           )
         """, nativeQuery = true)

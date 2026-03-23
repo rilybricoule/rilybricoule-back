@@ -31,8 +31,7 @@ public class CreateReservationRequest {
      * ID of the prestataire providing the service.
      * Business rule: Prestataire must exist and be active.
      */
-    @NotNull(message = "Prestataire ID is required")
-    @Positive(message = "Prestataire ID must be a positive number")
+    // PrestataireID must be optional for the dispatch reservation
     private Long prestaireId;
     
     /**
@@ -62,4 +61,17 @@ public class CreateReservationRequest {
      */
     @Positive(message = "Coupon ID must be a positive number")
     private Long couponId;
+
+    @NotBlank(message = "Category is required")
+    private String category;
+
+    private String subCategory;
+
+    @NotNull(message = "Booking mode is required")
+    private BookingMode bookingMode;
+
+    public enum BookingMode {
+        MANUAL,
+        DISPATCH
+    }
 }

@@ -31,6 +31,9 @@ public class Service {
     
     @Column(length = 100)
     private String category;
+
+    @Column(length = 100)
+    private String subCategory;
     
     @Column(length = 500)
     private String imageUrl;

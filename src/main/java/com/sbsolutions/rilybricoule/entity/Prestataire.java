@@ -61,4 +61,8 @@ public class Prestataire extends User {
     @Column(nullable = false, columnDefinition = "boolean not null default true")
     private boolean available = true;
 
+    @Builder.Default
+    @OneToMany(mappedBy = "prestataire", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<PrestataireCategory> categories = new HashSet<>();
+
 }

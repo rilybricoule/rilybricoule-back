@@ -49,7 +49,7 @@ public class ReservationResponse {
      * Total price for the reservation.
      * Business rule: This is the final price after applying any discounts.
      */
-    @NotNull(message = "Total price is required")
+
     private BigDecimal totalPrice;
     
     /**
@@ -113,14 +113,14 @@ public class ReservationResponse {
                 .phone(reservation.getClient().getPhone())
                 .address(reservation.getClient().getAddress())
                 .build())
-            .prestataire(PrestaireDTO.builder()
+            .prestataire(reservation.getPrestataire() != null ? PrestaireDTO.builder()
                 .id(reservation.getPrestataire().getId())
                 .name(reservation.getPrestataire().getName())
                 .description(reservation.getPrestataire().getDescription())
                 .phone(reservation.getPrestataire().getPhone())
                 .email(reservation.getPrestataire().getEmail())
                 .address(reservation.getPrestataire().getAddress())
-                .build())
+                .build(): null)
             .coupon(reservation.getCoupon() != null ? CouponDTO.builder()
                 .id(reservation.getCoupon().getId())
                 .code(reservation.getCoupon().getCode())
