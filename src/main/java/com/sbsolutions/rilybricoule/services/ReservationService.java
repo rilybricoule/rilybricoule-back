@@ -78,6 +78,7 @@ public class ReservationService {
     private final PaymentService paymentService;
     private final INotificationService notificationService;
     private final PaymentHistoryRepository paymentHistoryRepository;
+    private final ReservationDispatchService reservationDispatchService;
 
     /**
      * Create a new reservation from a request.
@@ -100,16 +101,22 @@ public class ReservationService {
         // Validate that client exists
         Client client = clientRepository.findById(request.getClientId())
                 .orElseThrow(() -> new IllegalArgumentException("Client not found with ID: " + request.getClientId()));
-        
-        // Validate that prestataire exists
+        Reservation reservation;
+        // Validate that prestataire exists if bookingMode is manual
+        if (request.getBookingMode() == CreateReservationRequest.BookingMode.MANUAL) {
+            if (request.getPrestaireId() == null) {
+                throw new IllegalArgumentException("Prestataire ID is required for MANUAL booking mode");
+            }
         Prestataire prestataire = prestaireRepository.findById(request.getPrestaireId())
                 .orElseThrow(() -> new IllegalArgumentException("Prestataire not found with ID: " + request.getPrestaireId()));
 
         // Create new reservation with initial values
-        Reservation reservation = Reservation.builder()
+        reservation = Reservation.builder()
                 .reservationDate(request.getReservationDate())
                 .reservationTime(request.getReservationTime())
                 .description(request.getDescription())
+                .category(request.getCategory())
+                .subCategory(request.getSubCategory())
                 .client(client)
                 .prestataire(prestataire)
                 .totalPrice(BigDecimal.ZERO)
@@ -132,8 +139,37 @@ public class ReservationService {
 
         Reservation savedReservation = reservationRepository.save(reservation);
         notificationService.notifyReservation(client, savedReservation);
-
         return ReservationResponse.fromEntity(savedReservation);
+        }
+        if (request.getBookingMode() == CreateReservationRequest.BookingMode.DISPATCH) {
+            reservation = Reservation.builder()
+                    .reservationDate(request.getReservationDate())
+                    .reservationTime(request.getReservationTime())
+                    .description(request.getDescription())
+                    .category(request.getCategory())
+                    .subCategory(request.getSubCategory())
+                    .client(client)
+                    .prestataire(null)
+                    .totalPrice(null)
+                    .discountAmount(BigDecimal.ZERO)
+                    .status(Reservation.ReservationStatus.PENDING_DISPATCH)
+                    .build();
+
+            if (request.getCouponId() != null) {
+                couponService.findById(request.getCouponId()).ifPresent(coupon -> {
+                    if (couponService.isValid(coupon)) {
+                        reservation.setCoupon(coupon);
+                        reservation.setDiscountAmount(coupon.getDiscountAmount());
+                    }
+                });
+            }
+            Reservation savedReservation = reservationRepository.save(reservation);
+
+            reservationDispatchService.createDispatchesForReservation(savedReservation);
+            return ReservationResponse.fromEntity(savedReservation);
+        }
+        throw new IllegalArgumentException("Unsupported booking mode");
+
     }
 
     /**
@@ -160,6 +196,9 @@ public class ReservationService {
      * @throws PaymentFailedException if payment processing fails
      */
     public ReservationResponse createReservationWithPayment(CreateReservationRequest request, PaymentRequestDTO paymentRequest) {
+        if (request.getBookingMode() == CreateReservationRequest.BookingMode.DISPATCH) {
+            throw new IllegalArgumentException("Immediate payment is not allowed for DISPATCH booking mode");
+        }
         // First create the reservation
         ReservationResponse reservationResp = createReservation(request);
         
@@ -339,6 +378,13 @@ public class ReservationService {
         if (currentStatus == newStatus) return;
 
         switch (currentStatus) {
+            case PENDING_DISPATCH:
+                if (newStatus != Reservation.ReservationStatus.PENDING_PAYMENT
+                        && newStatus != Reservation.ReservationStatus.DISPATCH_FAILED
+                        && newStatus != Reservation.ReservationStatus.CANCELLED) {
+                    throw new BusinessException("Invalid status transition from PENDING_DISPATCH to " + newStatus);
+                }
+                break;
             case PENDING_PAYMENT:
                 if (newStatus != Reservation.ReservationStatus.CONFIRMED && newStatus != Reservation.ReservationStatus.CANCELLED) {
                     throw new BusinessException("Invalid status transition from PENDING_PAYMENT to " + newStatus);
@@ -351,6 +397,7 @@ public class ReservationService {
                 break;
             case COMPLETED:
             case CANCELLED:
+            case DISPATCH_FAILED:
                 throw new BusinessException("No transitions allowed from " + currentStatus);
             default:
                 throw new BusinessException("Unhandled reservation status: " + currentStatus);

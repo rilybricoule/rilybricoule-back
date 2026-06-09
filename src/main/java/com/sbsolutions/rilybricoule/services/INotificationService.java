@@ -6,6 +6,7 @@ import com.sbsolutions.rilybricoule.entity.Client;
 import com.sbsolutions.rilybricoule.entity.Message;
 import com.sbsolutions.rilybricoule.entity.Reservation;
 import com.sbsolutions.rilybricoule.entity.User;
+import com.sbsolutions.rilybricoule.entity.Prestataire;
 
 import java.util.List;
 
@@ -28,4 +29,10 @@ public interface INotificationService {
 
     // Delete all notifications for a user
     void deleteAllNotificationsForUser(Long userId);
+
+    NotificationOutputDto notifyDispatchToPrestataire(Prestataire prestataire, Reservation reservation);
+
+    NotificationOutputDto notifyDispatchAccepted(Prestataire prestataire, Reservation reservation);
+
+    NotificationOutputDto notifyDispatchFailedToClient(Client client, Reservation reservation);
 }

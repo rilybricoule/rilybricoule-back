@@ -87,13 +87,16 @@ class ReservationServiceTest {
                 .build();
 
         validRequest = CreateReservationRequest.builder()
-                .clientId(1L)
-                .prestaireId(1L)
-                .reservationDate(LocalDate.now().plusDays(5))
-                .reservationTime(LocalTime.of(10, 0))
-                .description("Home repair service")
-                .couponId(null)
-                .build();
+        .clientId(1L)
+        .prestaireId(1L)
+        .reservationDate(LocalDate.now().plusDays(5))
+        .reservationTime(LocalTime.of(10, 0))
+        .description("Home repair service")
+        .couponId(null)
+        .category("Plomberie")
+        .subCategory("Fuite")
+        .bookingMode(CreateReservationRequest.BookingMode.MANUAL)
+        .build();
 
         savedReservation = Reservation.builder()
                 .id(1L)

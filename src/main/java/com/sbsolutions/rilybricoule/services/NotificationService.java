@@ -44,6 +44,9 @@ public class NotificationService implements INotificationService {
 
     @Override
     public NotificationOutputDto notifyReservation(Client client, Reservation reservation) {
+        if (reservation.getPrestataire() == null) {
+            return null;
+        }
         // Create DTO instance
         NotificationInputDto inputDto = new NotificationInputDto();
         inputDto.setContenu("New reservation from " + client.getFirstName() + " " + client.getLastName()
@@ -58,6 +61,57 @@ public class NotificationService implements INotificationService {
 
         NotificationOutputDto dto = notificationMapper.toDto(saved);
         pushNotificationToUser(reservation.getPrestataire().getId(), dto);
+        return dto;
+    }
+
+    @Override
+    public NotificationOutputDto notifyDispatchToPrestataire(Prestataire prestataire, Reservation reservation) {
+        NotificationInputDto inputDto = new NotificationInputDto();
+        inputDto.setContenu("New dispatch request for reservation ID: " + reservation.getId());
+        inputDto.setType(NotificationType.RESERVATION);
+        inputDto.setReceiverId(prestataire.getId());
+        inputDto.setDate(null);
+
+        Notification notification = notificationMapper.toEntity(inputDto, prestataire);
+        Notification saved = notificationRepository.save(notification);
+
+        NotificationOutputDto dto = notificationMapper.toDto(saved);
+        pushNotificationToUser(prestataire.getId(), dto);
+        return dto;
+    }
+
+    @Override
+    public NotificationOutputDto notifyDispatchAccepted(Prestataire prestataire, Reservation reservation) {
+        NotificationInputDto inputDto = new NotificationInputDto();
+        inputDto.setContenu("You have accepted reservation ID: " + reservation.getId());
+        inputDto.setType(NotificationType.RESERVATION);
+        inputDto.setReceiverId(prestataire.getId());
+        inputDto.setDate(null);
+
+        Notification notification = notificationMapper.toEntity(inputDto, prestataire);
+        Notification saved = notificationRepository.save(notification);
+
+        NotificationOutputDto dto = notificationMapper.toDto(saved);
+        pushNotificationToUser(prestataire.getId(), dto);
+        return dto;
+    }
+
+    @Override
+    public NotificationOutputDto notifyDispatchFailedToClient(Client client, Reservation reservation) {
+        NotificationInputDto inputDto = new NotificationInputDto();
+        inputDto.setContenu(
+                "Dispatch failed for reservation ID: " + reservation.getId()
+                        + ". No prestataire accepted your request. You can retry later or create a manual reservation."
+        );
+        inputDto.setType(NotificationType.RESERVATION);
+        inputDto.setReceiverId(client.getId());
+        inputDto.setDate(null);
+
+        Notification notification = notificationMapper.toEntity(inputDto, client);
+        Notification saved = notificationRepository.save(notification);
+
+        NotificationOutputDto dto = notificationMapper.toDto(saved);
+        pushNotificationToUser(client.getId(), dto);
         return dto;
     }
 

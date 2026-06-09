@@ -31,8 +31,14 @@ public class Reservation {
     
     @Column(length = 500)
     private String description;
+
+    @Column(nullable = false, length = 100)
+    private String category;
+
+    @Column(length = 100)
+    private String subCategory;
     
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(precision = 10, scale = 2)
     private BigDecimal totalPrice;
     
     @Column(precision = 10, scale = 2)
@@ -48,7 +54,7 @@ public class Reservation {
     private Client client;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "prestataire_id", nullable = false)
+    @JoinColumn(name = "prestataire_id", nullable = true)
     private Prestataire prestataire;
     
     @ManyToOne(fetch = FetchType.LAZY)
@@ -63,8 +69,12 @@ public class Reservation {
 
     @Column
     private LocalDateTime cancelledAt;
+
+    @Builder.Default
+    @Column(name = "dispatch_retry_done", nullable = false)
+    private Boolean dispatchRetryDone = false;
     
     public enum ReservationStatus {
-        PENDING_PAYMENT, CONFIRMED, COMPLETED, CANCELLED
+        PENDING_DISPATCH, PENDING_PAYMENT, CONFIRMED, COMPLETED, CANCELLED, DISPATCH_FAILED
     }
 }

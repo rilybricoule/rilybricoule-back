@@ -17,6 +17,7 @@ public class PrestataireSearchDTO {
     private String name;
 
     private Double distanceKm;
+    private Double score;
     private Double averageRating;
     private BigDecimal minPrice;
 }

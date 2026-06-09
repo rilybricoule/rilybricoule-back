@@ -16,10 +16,23 @@ public interface ServiceRepository extends JpaRepository<Service, Long> {
     List<Service> findByPrestataire_Id(Long prestataireId);
     List<Service> findByCategory(String category);
     @Query("""
-  SELECT s.prestataire.id, MIN(s.price)
-  FROM Service s
-  WHERE s.prestataire.id IN :ids
-  GROUP BY s.prestataire.id
+    SELECT s.prestataire.id, MIN(s.price)
+    FROM Service s
+    WHERE s.prestataire.id IN :ids
+    GROUP BY s.prestataire.id
 """)
     List<Object[]> findMinPricesByPrestataireIds(@Param("ids") List<Long> ids);
+
+    @Query("""
+    SELECT DISTINCT s.prestataire.id
+    FROM Service s
+    WHERE s.prestataire.id IN :ids
+    AND (:category IS NULL OR LOWER(s.category) = LOWER(:category))
+    AND (:subCategory IS NULL OR LOWER(s.subCategory) = LOWER(:subCategory))
+""")
+    List<Long> findPrestataireIdsByCategoryAndSubCategory(
+            @Param("ids") List<Long> ids,
+            @Param("category") String category,
+            @Param("subCategory") String subCategory
+    );
 }

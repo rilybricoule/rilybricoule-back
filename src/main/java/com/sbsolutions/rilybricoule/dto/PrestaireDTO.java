@@ -18,4 +18,5 @@ public class PrestaireDTO {
     private String address;
     private Double latitude;
     private Double longitude;
+
 }
