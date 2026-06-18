@@ -19,6 +19,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -33,18 +38,22 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/clients/**").hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/clients/**").hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/clients/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/clients/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/prestataires/**").hasAnyRole("PRESTATAIRE", "CLIENT", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/prestataires", "/api/prestataires/**")
+                        .hasAnyAuthority("PROVIDERS_VIEW", "ROLE_PRESTATAIRE", "ROLE_CLIENT", "ROLE_ADMIN")
+
+
                         .requestMatchers(HttpMethod.PUT, "/api/prestataires/**").hasAnyRole("PRESTATAIRE", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/prestataires/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/prestataires/**").hasRole("ADMIN")
@@ -58,8 +67,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/coupons/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/avis/**").hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/avis/**").authenticated()
-                        .requestMatchers("/api/chats/**").hasAnyRole("CLIENT", "PRESTATAIRE", "ADMIN")
-                        .requestMatchers("/api/messages/**").hasAnyRole("CLIENT", "PRESTATAIRE", "ADMIN")
+                        .requestMatchers("/api/chats/**")
+                        .hasAnyRole("CLIENT", "PRESTATAIRE", "ADMIN", "SUPER_ADMIN", "MODERATEUR", "SUPPORT")
+                        .requestMatchers("/api/messages/**")
+                        .hasAnyRole("CLIENT", "PRESTATAIRE", "ADMIN", "SUPER_ADMIN", "MODERATEUR", "SUPPORT")
                         .requestMatchers("/api/notifications/**").authenticated()
                         .anyRequest().authenticated()
                 )
@@ -76,6 +87,25 @@ public class SecurityConfig {
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(
+                "http://localhost:5173","http://localhost:5174",
+                "http://localhost:5177"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+
 
     @Bean
     public PasswordEncoder passwordEncoder() {

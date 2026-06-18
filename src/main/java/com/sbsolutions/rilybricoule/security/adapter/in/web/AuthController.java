@@ -1,6 +1,8 @@
 package com.sbsolutions.rilybricoule.security.adapter.in.web;
 
 import com.sbsolutions.rilybricoule.dto.*;
+import com.sbsolutions.rilybricoule.dto.admin.ChangePasswordRequiredRequest;
+import com.sbsolutions.rilybricoule.dto.admin.TwoFAVerifyRequest;
 import com.sbsolutions.rilybricoule.security.domain.port.in.AuthUseCase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -32,7 +34,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<JwtResponse> login(@Valid @RequestBody LoginRequest request,
+    public ResponseEntity<Object> login(@Valid @RequestBody LoginRequest request,
                                               HttpServletRequest httpRequest) {
         return ResponseEntity.ok(authUseCase.login(request, extractIp(httpRequest), extractUserAgent(httpRequest)));
     }
@@ -60,6 +62,20 @@ public class AuthController {
                                                           @RequestParam String purpose) {
         authUseCase.resendOtp(email, purpose);
         return ResponseEntity.ok(Map.of("message", "OTP code has been resent."));
+    }
+    @PostMapping("/change-password-required")
+    public ResponseEntity<JwtResponse> changePasswordRequired(
+            @RequestBody ChangePasswordRequiredRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return ResponseEntity.ok(authUseCase.changePasswordRequired(
+                request.getEmail(),
+                request.getCurrentPassword(),
+                request.getNewPassword(),
+                request.getConfirmPassword(),
+                extractIp(httpRequest),
+                extractUserAgent(httpRequest)
+        ));
     }
 
     @PostMapping("/refresh")
@@ -91,5 +107,14 @@ public class AuthController {
 
     private String extractUserAgent(HttpServletRequest request) {
         return request.getHeader("User-Agent");
+    }
+
+
+    @PostMapping("/login/2fa")
+    public ResponseEntity<JwtResponse> verify2FALogin(
+            @RequestHeader("Authorization") String tempToken,
+            @Valid @RequestBody TwoFAVerifyRequest request
+    ) {
+        return ResponseEntity.ok(authUseCase.verify2FA(tempToken, request.getCode()));
     }
 }

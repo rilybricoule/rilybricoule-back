@@ -257,6 +257,9 @@ public class ReservationService {
             Reservation.ReservationStatus newStatus = Reservation.ReservationStatus.valueOf(status.toUpperCase());
             // validate allowed transition
             validateStatusTransition(reservation.getStatus(), newStatus);
+            if (newStatus == Reservation.ReservationStatus.COMPLETED) {
+                applyCompletionPaymentRules(reservation);
+            }
 
             // Additional validations
             if (newStatus == Reservation.ReservationStatus.CONFIRMED) {
@@ -275,13 +278,20 @@ public class ReservationService {
         }
     }
 
-    /**
-     * Cancel an existing reservation.
-     * 
-     * @param id the reservation ID to cancel
-     * @return ReservationResponse with CANCELLED status
-     * @throws IllegalArgumentException if reservation is not found
-     */
+    private void applyCompletionPaymentRules(Reservation reservation) {
+        Paiement paiement = reservation.getPaiement();
+
+        if (paiement == null || paiement.getPaymentStatus() != Paiement.PaymentStatus.SUCCESS) {
+            throw new BusinessException("Cannot complete reservation before successful payment");
+        }
+
+        paiement.setPayoutStatus(Paiement.PayoutStatus.PAID);
+        paiement.setCommissionStatus(Paiement.CommissionStatus.RECEIVED);
+    }
+
+
+
+
     public ReservationResponse cancelReservation(Long id) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Reservation not found with ID: " + id));

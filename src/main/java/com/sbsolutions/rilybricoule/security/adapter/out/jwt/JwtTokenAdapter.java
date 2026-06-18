@@ -76,4 +76,19 @@ public class JwtTokenAdapter implements TokenProviderPort {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
+
+    @Override
+    public String generateTemp2FAToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("tokenType", "TEMP_2FA");
+        return buildToken(claims, userDetails);
+    }
+
+
+
+    @Override
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get("tokenType", String.class));
+    }
 }

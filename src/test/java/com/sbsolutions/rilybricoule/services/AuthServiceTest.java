@@ -169,6 +169,8 @@ class AuthServiceTest {
         void login_Success() {
             LoginRequest request = new LoginRequest("ahmed@test.com", "password123");
 
+
+
             Authentication mockAuth = mock(Authentication.class);
             when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                     .thenReturn(mockAuth);
@@ -178,6 +180,7 @@ class AuthServiceTest {
             user.setEmail("ahmed@test.com");
             user.setFirstName("Ahmed");
             user.setLastName("Benali");
+            user.setTwoFAEnabled(false);
             user.setRoles(Set.of(clientRole));
 
             when(userRepository.findByEmail("ahmed@test.com")).thenReturn(Optional.of(user));
@@ -195,7 +198,11 @@ class AuthServiceTest {
                     .build();
             when(refreshTokenRepository.createRefreshToken(any(User.class))).thenReturn(refreshToken);
 
-            JwtResponse response = authService.login(request, "127.0.0.1", "TestAgent");
+            Object result = authService.login(request, "127.0.0.1", "TestAgent");
+
+            assertTrue(result instanceof JwtResponse);
+
+            JwtResponse response = (JwtResponse) result;
 
             assertNotNull(response);
             assertEquals("jwt-login-token", response.getAccessToken());

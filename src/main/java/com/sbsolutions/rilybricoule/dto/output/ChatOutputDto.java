@@ -23,4 +23,9 @@ public class ChatOutputDto {
     private Boolean active;
     private LocalDateTime lastMessageAt;
     private List<MessageOutputDto> messages;
+
+    private String displayName;
+    private String avatarLetter;
+    private String lastMessagePreview;
+    private Long unreadCount;
 }

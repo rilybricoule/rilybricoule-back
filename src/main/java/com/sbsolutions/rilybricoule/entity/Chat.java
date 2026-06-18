@@ -27,13 +27,25 @@ public class Chat {
 
     // Client
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", nullable = false)
+    @JoinColumn(name = "client_id", nullable = true)
     private Client client;
 
     // Prestataire
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "prestataire_id", nullable = false)
+    @JoinColumn(name = "prestataire_id", nullable = true)
     private Prestataire prestataire;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "participant_one_id")
+    private User participantOne;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "participant_two_id")
+    private User participantTwo;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ChatType type = ChatType.RESERVATION;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -68,6 +80,8 @@ public class Chat {
     @Column(nullable = false)
     private boolean active = true;
 
+
+
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Message> messages = new ArrayList<>();
 
@@ -79,12 +93,26 @@ public class Chat {
     }
 
     public User getOtherUser(User sender) {
-        if (sender.getId().equals(client.getId())) {
-            return prestataire;
-        } else if (sender.getId().equals(prestataire.getId())) {
-            return client;
-        } else {
+        if (type != ChatType.RESERVATION && participantOne != null && participantTwo != null) {
+            if (sender.getId().equals(participantOne.getId())) {
+                return participantTwo;
+            }
+
+            if (sender.getId().equals(participantTwo.getId())) {
+                return participantOne;
+            }
+
             throw new IllegalArgumentException("User is not part of this chat");
         }
+
+        if (client != null && sender.getId().equals(client.getId())) {
+            return prestataire;
+        }
+
+        if (prestataire != null && sender.getId().equals(prestataire.getId())) {
+            return client;
+        }
+
+        throw new IllegalArgumentException("User is not part of this chat");
     }
 }

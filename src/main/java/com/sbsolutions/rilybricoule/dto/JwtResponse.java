@@ -13,10 +13,14 @@ import java.util.List;
 @AllArgsConstructor
 public class JwtResponse {
 
+    private Long id;
     private String accessToken;
     private String refreshToken;
     private String email;
     private String firstName;
     private String lastName;
     private List<String> roles;
+
+    private String roleName;
+    private List<String> permissions;
 }

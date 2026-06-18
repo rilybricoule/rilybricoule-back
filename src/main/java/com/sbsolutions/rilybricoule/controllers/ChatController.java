@@ -2,6 +2,7 @@ package com.sbsolutions.rilybricoule.controllers;
 
 import com.sbsolutions.rilybricoule.dto.input.ChatInputDto;
 import com.sbsolutions.rilybricoule.dto.input.MessageInputDto;
+import com.sbsolutions.rilybricoule.dto.input.OpenAdminChatRequest;
 import com.sbsolutions.rilybricoule.dto.output.ChatOutputDto;
 import com.sbsolutions.rilybricoule.dto.output.MessageOutputDto;
 import com.sbsolutions.rilybricoule.entity.*;
@@ -86,6 +87,23 @@ public class ChatController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<ChatOutputDto>> getChatsByUser(@PathVariable Long userId) {
         return ResponseEntity.ok(chatService.getChatsByUserId(userId));
+    }
+
+
+    @PostMapping("/admin/open")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'MODERATEUR', 'SUPPORT')")
+    public ResponseEntity<ChatOutputDto> openAdminChat(@RequestBody OpenAdminChatRequest request) {
+        ChatType type = request.getType() != null
+                ? request.getType()
+                : ChatType.ADMIN_SUPPORT;
+
+        ChatOutputDto chat = chatService.openGenericChat(
+                request.getAdminId(),
+                request.getParticipantId(),
+                type
+        );
+
+        return ResponseEntity.ok(chat);
     }
 
     @Operation(summary = "Pin conversation", description = "Pins the chat for the requesting participant.")

@@ -11,6 +11,13 @@ import java.util.Optional;
 @Repository
 public interface CouponRepository extends JpaRepository<Coupon, Long> {
     Optional<Coupon> findByCode(String code);
-    List<Coupon> findByActiveTrueAndExpiryDateGreaterThanEqual(LocalDate date);
+
+    List<Coupon> findTop5ByOrderByCreatedAtDesc();
+
     List<Coupon> findByActiveTrueOrderByExpiryDateDesc();
+
+
+    List<Coupon> findAllByOrderByCreatedAtDesc();
+
+    boolean existsByCodeIgnoreCase(String code);
 }

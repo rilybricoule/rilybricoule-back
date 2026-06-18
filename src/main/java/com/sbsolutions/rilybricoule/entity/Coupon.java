@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -41,6 +42,26 @@ public class Coupon {
     @Column(nullable = false)
     @Builder.Default
     private Boolean active = true;
+
+    @Column(length = 150)
+    private String title;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "target_audience", length = 50)
+    private String targetAudience;
+
+    @Column(name = "max_usage")
+    private Integer maxUsage;
+
+    @Column(name = "current_usage", nullable = false)
+    @Builder.Default
+    private Integer currentUsage = 0;
+
+    @Column(name = "created_at", nullable = false)
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
     
     @OneToMany(mappedBy = "coupon", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @Builder.Default

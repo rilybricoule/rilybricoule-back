@@ -11,14 +11,29 @@ import java.time.LocalDateTime;
 @Builder
 public class NotificationOutputDto {
 
-
-
     private Long id;
-    private String contenu;          // texte de la notification
-    private LocalDateTime date;      // date de création
+
+    private String title;
+    private String message;
+
+    private String contenu;
+    private LocalDateTime date;
+
     private NotificationType type;
-    private  boolean vu ;
-    private  Long receiverId;
+
+    private boolean vu;
+    private boolean read;
+
+    private String channel;
+
+    private String triggeredBy;
+    private String triggeredByRole;
+    private Long triggeredById;
+
+    private LocalDateTime sentAt;
+
+    private Long receiverId;
     private String receiverName;
 
+    private String redirectUrl;
 }

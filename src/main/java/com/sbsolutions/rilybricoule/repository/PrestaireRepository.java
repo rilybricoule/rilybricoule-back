@@ -44,4 +44,6 @@ public interface PrestaireRepository extends JpaRepository<Prestataire, Long> {
             @Param("radiusKm") double radiusKm
     );
 
+    long countByStatus(Prestataire.ProviderStatus status);
+
 }

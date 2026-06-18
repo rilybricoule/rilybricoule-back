@@ -45,8 +45,19 @@ public class User {
     private String providerId;
 
     @Builder.Default
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword = false;
+
+    @Builder.Default
     @Column(nullable = false)
     private boolean enabled = true;
+
+    @Builder.Default
+    @Column(name = "twofa_enabled")
+    private boolean twoFAEnabled = false;
+
+    @Column(name = "twofa_secret")
+    private String twoFASecret;
 
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)

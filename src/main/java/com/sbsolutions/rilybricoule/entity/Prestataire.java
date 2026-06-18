@@ -39,6 +39,21 @@ public class Prestataire extends User {
 
     private Double longitude;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private ProviderStatus status = ProviderStatus.PENDING;
+
+    @Column(length = 1000)
+    private String adminComment;
+
+    public enum ProviderStatus {
+        PENDING,
+        APPROVED,
+        REJECTED,
+        SUSPENDED
+    }
+
 
 
     @OneToMany(mappedBy = "prestataire", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)

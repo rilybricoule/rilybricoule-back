@@ -108,47 +108,23 @@ public class MessageService implements IMessageService {
     @Override
     @Transactional
     public MessageOutputDto saveMessage(Long chatId, Long senderId, MessageInputDto inputDto) {
-        // Fetch chat
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new RuntimeException("Chat not found with id " + chatId));
 
-        // Fetch sender
         User sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new RuntimeException("Sender not found with id " + senderId));
 
-        // Determine receiver
         User receiver = chat.getOtherUser(sender);
 
-        // Resolve message type (backward compatible default)
-        MessageType type = inputDto.getMessageType() != null ? inputDto.getMessageType() : MessageType.TEXT;
-
-        // Normalize values
         String content = inputDto.getContent() != null ? inputDto.getContent().trim() : null;
         String mediaUrl = inputDto.getMediaUrl() != null ? inputDto.getMediaUrl().trim() : null;
 
-        // Validate payload by type
-        switch (type) {
-            case TEXT -> {
-                if (content == null || content.isEmpty()) {
-                    throw new IllegalArgumentException("TEXT message requires non-empty content");
-                }
-            }
-            case IMAGE, AUDIO, FILE -> {
-                if (mediaUrl == null || mediaUrl.isEmpty()) {
-                    throw new IllegalArgumentException(type + " message requires mediaUrl");
-                }
-            }
-            case SYSTEM -> {
-                // Optional rule: block user-created SYSTEM messages
-                throw new IllegalArgumentException("SYSTEM messages cannot be sent from this endpoint");
-            }
-            default -> throw new IllegalArgumentException("Unsupported message type: " + type);
-        }
+        MessageType type = resolveMessageType(inputDto);
+
+        validateByType(type, content, mediaUrl);
 
         blockService.assertMessagingAllowed(sender.getId(), receiver.getId());
 
-
-        // Build entity
         Message message = Message.builder()
                 .chat(chat)
                 .sender(sender)
@@ -156,35 +132,44 @@ public class MessageService implements IMessageService {
                 .content(content)
                 .read(false)
                 .messageType(type)
-                // If your entity still uses imageUrl, map mediaUrl into it for now:
                 .mediaUrl(mediaUrl)
                 .build();
 
-        // Save and notify
         Message saved = messageRepository.save(message);
-        notificationService.notifyNewMessage(sender, receiver, saved);
+
+        chat.setLastMessageAt(saved.getCreatedAt());
+        chatRepository.save(chat);
+
+        try {
+            notificationService.notifyNewMessage(sender, receiver, saved);
+        } catch (Exception e) {
+            log.warn("Message saved but notification failed: {}", e.getMessage());
+        }
 
         MessageOutputDto dto = messageMapper.toDto(saved);
         messagingTemplate.convertAndSend("/topic/chat/" + chatId, dto);
 
         return dto;
     }
-
     @Transactional
     public void markAsRead(Long chatId, Long receiverId) {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new IllegalArgumentException("Chat not found with id " + chatId));
 
-        Long clientId = chat.getClient().getId();
-        Long prestataireId = chat.getPrestataire().getId();
+        boolean belongsToReservationChat =
+                (chat.getClient() != null && receiverId.equals(chat.getClient().getId()))
+                        || (chat.getPrestataire() != null && receiverId.equals(chat.getPrestataire().getId()));
 
-        if (!receiverId.equals(clientId) && !receiverId.equals(prestataireId)) {
+        boolean belongsToGenericChat =
+                (chat.getParticipantOne() != null && receiverId.equals(chat.getParticipantOne().getId()))
+                        || (chat.getParticipantTwo() != null && receiverId.equals(chat.getParticipantTwo().getId()));
+
+        if (!belongsToReservationChat && !belongsToGenericChat) {
             throw new IllegalArgumentException("Receiver does not belong to this chat");
         }
 
         messageRepository.markMessagesAsRead(chatId, receiverId);
     }
-
 
     @Override
     public long getUnreadMessageCount(Long userId) {
@@ -217,6 +202,51 @@ public class MessageService implements IMessageService {
         }
         return count;
     }
+
+    @Override
+    public  MessageType resolveMessageType(MessageInputDto dto) {
+        if (dto.getMessageType() != null) {
+            return dto.getMessageType();
+        }
+
+        String mediaUrl = dto.getMediaUrl();
+        String content = dto.getContent();
+
+        if (mediaUrl != null && !mediaUrl.isBlank()) {
+            String lower = mediaUrl.toLowerCase();
+
+            if (lower.matches(".*\\.(jpg|jpeg|png|gif|webp)$")) return MessageType.IMAGE;
+            if (lower.matches(".*\\.(mp4|mov|mkv|avi|webm)$")) return MessageType.VIDEO;
+            if (lower.matches(".*\\.(mp3|wav|m4a|aac|ogg)$")) return MessageType.AUDIO;
+            return MessageType.FILE;
+        }
+
+        if (content != null && !content.isBlank()) {
+            return MessageType.TEXT;
+        }
+
+        throw new IllegalArgumentException("Message must contain text or media");
+    }
+
+    @Override
+    public void validateByType(MessageType type, String content, String mediaUrl) {
+        switch (type) {
+            case TEXT -> {
+                if (content == null || content.isBlank()) {
+                    throw new IllegalArgumentException("TEXT message requires content");
+                }
+            }
+            case IMAGE, AUDIO, VIDEO, FILE -> {
+                if (mediaUrl == null || mediaUrl.isBlank()) {
+                    throw new IllegalArgumentException(type + " message requires mediaUrl");
+                }
+            }
+            case SYSTEM -> throw new IllegalArgumentException("SYSTEM messages cannot be sent from this endpoint");
+            default -> throw new IllegalArgumentException("Unsupported message type: " + type);
+        }
+    }
+
+
 
 
     @Override

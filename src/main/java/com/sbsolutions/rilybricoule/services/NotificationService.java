@@ -86,6 +86,32 @@ public class NotificationService implements INotificationService {
 
     }
 
+    @Override
+    public List<NotificationOutputDto> getAllNotifications() {
+        return notificationRepository.findAllByOrderByDateDesc()
+                .stream()
+                .map(notificationMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void markAllAsRead() {
+        List<Notification> notifications = notificationRepository.findAll();
+
+        notifications.forEach(notification -> notification.setVu(true));
+
+        notificationRepository.saveAll(notifications);
+    }
+
+    @Override
+    public void deleteNotification(Long notificationId) {
+        if (!notificationRepository.existsById(notificationId)) {
+            throw new RuntimeException("Notification not found with id " + notificationId);
+        }
+
+        notificationRepository.deleteById(notificationId);
+    }
+
     // Get all notifications for a user
     @Override
     public List<NotificationOutputDto> getNotificationsForUser(Long userId) {

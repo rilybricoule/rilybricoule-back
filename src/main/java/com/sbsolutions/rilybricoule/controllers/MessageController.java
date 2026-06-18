@@ -34,7 +34,7 @@ public class MessageController {
             @ApiResponse(responseCode = "400", description = "Invalid input")
     })
     @PostMapping("/send")
-    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN', 'SUPER_ADMIN', 'MODERATEUR', 'SUPPORT')")
     public ResponseEntity<MessageOutputDto> sendMessage(
             @RequestBody
             MessageInputDto dto
@@ -54,7 +54,7 @@ public class MessageController {
             @ApiResponse(responseCode = "404", description = "Chat not found")
     })
     @GetMapping("/{chatId}")
-    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN', 'SUPER_ADMIN', 'MODERATEUR', 'SUPPORT')")
     public ResponseEntity<List<MessageOutputDto>> getMessagesByChat(
             @Parameter(description = "ID of the chat to retrieve messages for") @PathVariable Long chatId
     ) {
@@ -71,7 +71,7 @@ public class MessageController {
             @ApiResponse(responseCode = "400", description = "Invalid input")
     })
     @PostMapping("/save")
-    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CLIENT', 'PRESTATAIRE', 'ADMIN', 'SUPER_ADMIN', 'MODERATEUR', 'SUPPORT')")
     public ResponseEntity<MessageOutputDto> saveMessage(
             @RequestBody
             MessageInputDto dto

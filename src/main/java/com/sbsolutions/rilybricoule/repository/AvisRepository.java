@@ -12,7 +12,9 @@ import java.util.Optional;
 @Repository
 public interface AvisRepository extends JpaRepository<Avis, Long> {
     Optional<Avis> findByReservationId(Long reservationId);
+
     List<Avis> findByPrestataireId(Long prestataireId);
+
     List<Avis> findByPrestataireIdOrderByCreatedDateDesc(Long prestataireId);
 
     @Query("""
@@ -22,4 +24,8 @@ public interface AvisRepository extends JpaRepository<Avis, Long> {
   GROUP BY a.prestataire.id
 """)
     List<Object[]> findAvgRatingsByPrestataireIds(@Param("ids") List<Long> ids);
+
+
+    @Query("select coalesce(avg(a.rating), 0) from Avis a where a.prestataire.id = :prestataireId")
+    Double findAverageRatingByPrestataireId(@Param("prestataireId") Long prestataireId);
 }

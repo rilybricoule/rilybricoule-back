@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -48,6 +49,22 @@ public class GlobalExceptionHandler {
 
         log.warn("Business logic error: {}", ex.getMessage());
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatusException(
+            ResponseStatusException ex,
+            WebRequest request) {
+
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+
+        String message = ex.getReason() != null
+                ? ex.getReason()
+                : "Erreur";
+
+        log.warn("Response status error: {}", message);
+
+        return buildResponse(status, status.getReasonPhrase(), message, request);
     }
 
     @ExceptionHandler(PaymentFailedException.class)

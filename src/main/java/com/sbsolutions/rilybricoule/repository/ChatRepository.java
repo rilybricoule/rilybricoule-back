@@ -17,23 +17,50 @@ public interface ChatRepository extends JpaRepository<Chat,Long> {
 
     @Query("""
 SELECT c FROM Chat c
-WHERE (
-   (c.client.id = :userId AND c.deletedByClientAt IS NULL)
-   OR
-   (c.prestataire.id = :userId AND c.deletedByPrestataireAt IS NULL)
-)
+WHERE c.active = true
 AND c.archivedAt IS NULL
-AND c.active = true
+AND (
+    (
+        c.client IS NOT NULL
+        AND c.client.id = :userId
+        AND c.deletedByClientAt IS NULL
+    )
+    OR
+    (
+        c.prestataire IS NOT NULL
+        AND c.prestataire.id = :userId
+        AND c.deletedByPrestataireAt IS NULL
+    )
+    OR
+    (
+        c.participantOne IS NOT NULL
+        AND c.participantOne.id = :userId
+    )
+    OR
+    (
+        c.participantTwo IS NOT NULL
+        AND c.participantTwo.id = :userId
+    )
+)
 ORDER BY c.lastMessageAt DESC NULLS LAST, c.createdAt DESC
 """)
     List<Chat> findActivechatsByUserId(@Param("userId") Long userId);
 
-
+    @Query("""
+SELECT c FROM Chat c
+WHERE (
+    c.participantOne.id = :userOneId
+    AND c.participantTwo.id = :userTwoId
+)
+OR (
+    c.participantOne.id = :userTwoId
+    AND c.participantTwo.id = :userOneId
+)
+""")
+    Optional<Chat> findGenericChat(
+            @Param("userOneId") Long userOneId,
+            @Param("userTwoId") Long userTwoId
+    );
     // Add this method (for when you list "my chats" — only non-archived)
-    @Query("SELECT c FROM Chat c WHERE (c.client.id = :userId OR c.prestataire.id = :userId) AND c.archivedAt IS NULL")
-    List<Chat> findActiveByUserId(@Param("userId") Long userId);
 
-    // Optional: list only archived chats for a user
-    @Query("SELECT c FROM Chat c WHERE (c.client.id = :userId OR c.prestataire.id = :userId) AND c.archivedAt IS NOT NULL")
-    List<Chat> findArchivedByUserId(@Param("userId") Long userId);
 }

@@ -28,4 +28,14 @@ public interface INotificationService {
 
     // Delete all notifications for a user
     void deleteAllNotificationsForUser(Long userId);
+
+    List<NotificationOutputDto> getAllNotifications();
+
+
+
+
+
+    void markAllAsRead();
+
+    void deleteNotification(Long notificationId);
 }

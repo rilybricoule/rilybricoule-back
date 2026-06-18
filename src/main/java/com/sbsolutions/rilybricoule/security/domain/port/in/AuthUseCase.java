@@ -1,6 +1,7 @@
 package com.sbsolutions.rilybricoule.security.domain.port.in;
 
 import com.sbsolutions.rilybricoule.dto.*;
+import com.sbsolutions.rilybricoule.dto.admin.TwoFASetupResponse;
 
 public interface AuthUseCase {
 
@@ -8,7 +9,7 @@ public interface AuthUseCase {
 
     JwtResponse verifyEmailAndActivate(String email, String code, String ipAddress, String userAgent);
 
-    JwtResponse login(LoginRequest request, String ipAddress, String userAgent);
+    Object login(LoginRequest request, String ipAddress, String userAgent);
 
     JwtResponse socialLogin(SocialLoginRequest request, String ipAddress, String userAgent);
 
@@ -23,4 +24,21 @@ public interface AuthUseCase {
     void resetPassword(String email, String code, String newPassword);
 
     void resendOtp(String email, String purpose);
+
+    JwtResponse verify2FA(String tempTokenHeader, String code);
+
+    TwoFASetupResponse setup2FA();
+
+    void enable2FA(String code);
+
+    void disable2FA(String code);
+
+    JwtResponse changePasswordRequired(
+            String email,
+            String currentPassword,
+            String newPassword,
+            String confirmPassword,
+            String ipAddress,
+            String userAgent
+    );
 }

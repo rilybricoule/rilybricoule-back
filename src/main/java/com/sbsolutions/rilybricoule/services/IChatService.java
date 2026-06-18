@@ -4,6 +4,7 @@ package com.sbsolutions.rilybricoule.services;
 
 import com.sbsolutions.rilybricoule.dto.output.ChatOutputDto;
 import com.sbsolutions.rilybricoule.entity.Chat;
+import com.sbsolutions.rilybricoule.entity.ChatType;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -29,4 +30,6 @@ public interface IChatService {
     void unarchiveConversation(Long chatId, Long userId);
 
     List<ChatOutputDto> getChatsByUserId(Long userId);
+
+    ChatOutputDto openGenericChat(Long userOneId, Long userTwoId, ChatType type);
 }

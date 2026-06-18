@@ -56,7 +56,7 @@ public class PrestaireController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'CLIENT', 'ADMIN')")
+    @PreAuthorize("hasAuthority('PROVIDERS_VIEW') or hasAnyRole('PRESTATAIRE', 'CLIENT', 'ADMIN')")
     public ResponseEntity<?> getPrestataire(@PathVariable Long id) {
         Optional<Prestataire> prestataire = prestaireRepository.findById(id);
         if (prestataire.isEmpty()) {
@@ -65,8 +65,9 @@ public class PrestaireController {
         return ResponseEntity.ok(toDTO(prestataire.get()));
     }
 
+
     @GetMapping
-    @PreAuthorize("hasAnyRole('PRESTATAIRE', 'CLIENT', 'ADMIN')")
+    @PreAuthorize("hasAuthority('PROVIDERS_VIEW') or hasAnyRole('PRESTATAIRE', 'CLIENT', 'ADMIN')")
     public ResponseEntity<List<PrestaireDTO>> getAllPrestataires() {
         List<PrestaireDTO> prestataires = prestaireRepository.findAll()
             .stream()

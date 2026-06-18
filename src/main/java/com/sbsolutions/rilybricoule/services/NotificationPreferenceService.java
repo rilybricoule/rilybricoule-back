@@ -45,8 +45,10 @@ public class NotificationPreferenceService implements InotificationPreferenceSer
     public boolean canSend(Long userId, NotificationType type) {
         NotificationPreference pref = preferenceRepository.findByUserId(userId).orElse(null);
 
-        // if no preferences yet, allow by default
+        // If no preferences yet, allow by default
         if (pref == null) return true;
+
+        // If notifications are globally disabled, block
         if (!pref.isEnabled()) return false;
 
         return switch (type) {
@@ -54,9 +56,12 @@ public class NotificationPreferenceService implements InotificationPreferenceSer
             case RESERVATION -> pref.isReservationEnabled();
             case PAIEMENT -> pref.isPaiementEnabled();
             case AVIS -> pref.isAvisEnabled();
+
+            // These are system/admin-level notifications.
+            // If global notifications are enabled, allow them by default.
+            case WARNING, MARKETING, ACCOUNT, DISPUTE, SUPPORT, SYSTEM, PROMO -> true;
         };
     }
-
     private NotificationPreference getOrCreateEntity(Long userId) {
         return preferenceRepository.findByUserId(userId).orElseGet(() -> {
             User user = userRepository.findById(userId)

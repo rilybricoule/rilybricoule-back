@@ -48,6 +48,7 @@ public class PaymentMapper {
             case SUCCESS -> "Payment processed successfully";
             case PENDING -> "Payment is pending";
             case FAILED -> "Payment processing failed";
+            case REFUNDED -> "payment has benn refunded";
         };
     }
 

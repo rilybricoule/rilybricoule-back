@@ -84,6 +84,35 @@ public class PaymentService {
             .build();
     }
 
+
+
+    @Transactional
+    public void refundReservation(Long reservationId) {
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new IllegalArgumentException("Reservation not found with ID: " + reservationId));
+
+        Paiement paiement = paiementRepository.findByReservationId(reservationId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found for reservation ID: " + reservationId));
+
+        if (paiement.getPaymentStatus() != Paiement.PaymentStatus.SUCCESS) {
+            throw new IllegalStateException("Only successful payments can be refunded");
+        }
+
+        paiement.setPaymentStatus(Paiement.PaymentStatus.REFUNDED);
+        paiementRepository.save(paiement);
+
+        try {
+            PaymentHistory history = PaymentHistory.builder()
+                    .amount(paiement.getAmount())
+                    .action(PaymentHistory.PaymentAction.REFUND)
+                    .reservation(reservation)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            paymentHistoryRepository.save(history);
+        } catch (Exception ignored) {
+        }
+    }
+
     /**
      * Process payment for a specific reservation and update statuses accordingly.
      * 
@@ -134,7 +163,7 @@ public class PaymentService {
             .build();
 
         if (paymentResponse.isSuccess()) {
-            // Payment successful: update paiement and reservation to CONFIRMED
+
             paiement.setPaymentStatus(Paiement.PaymentStatus.SUCCESS);
             paiement.setPaymentDate(LocalDateTime.now());
             
@@ -143,7 +172,7 @@ public class PaymentService {
             
             paiementRepository.save(paiement);
             reservationRepository.save(reservation);
-            // create payment history entry
+
             try {
                 PaymentHistory history = PaymentHistory.builder()
                         .amount(paiement.getAmount())
@@ -152,7 +181,7 @@ public class PaymentService {
                         .build();
                 paymentHistoryRepository.save(history);
             } catch (Exception ignored) {
-                // Don't fail payment when history creation fails
+
             }
         } else {
             // Payment failed: update paiement and reservation to CANCELLED

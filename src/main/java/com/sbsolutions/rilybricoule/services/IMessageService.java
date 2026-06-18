@@ -2,6 +2,7 @@ package com.sbsolutions.rilybricoule.services;
 
 import com.sbsolutions.rilybricoule.dto.input.MessageInputDto;
 import com.sbsolutions.rilybricoule.dto.output.MessageOutputDto;
+import com.sbsolutions.rilybricoule.entity.MessageType;
 
 import java.util.List;
 
@@ -27,6 +28,8 @@ public interface IMessageService {
 
     int purgeDeletedMessagesOlderThanSevenDays();
 
+    void validateByType(MessageType type, String content, String mediaUrl);
 
+    MessageType resolveMessageType(MessageInputDto dto);
 
 }

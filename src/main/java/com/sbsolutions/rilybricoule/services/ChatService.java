@@ -5,10 +5,7 @@ import java.util.List;
 import com.sbsolutions.rilybricoule.dto.output.ChatOutputDto;
 import com.sbsolutions.rilybricoule.dto.output.MessageOutputDto;
 import com.sbsolutions.rilybricoule.entity.*;
-import com.sbsolutions.rilybricoule.repository.ChatRepository;
-import com.sbsolutions.rilybricoule.repository.ClientRepository;
-import com.sbsolutions.rilybricoule.repository.PrestaireRepository;
-import com.sbsolutions.rilybricoule.repository.ReservationRepository;
+import com.sbsolutions.rilybricoule.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,12 +17,103 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class ChatService implements IChatService {
+public class
+ChatService implements IChatService {
 
+
+    private final UserRepository userRepository;
     private final ChatRepository chatRepository;
     private final ClientRepository clientRepository;
     private final PrestaireRepository prestataireRepository;
     private final ReservationRepository reservationRepository;
+
+    @Transactional
+    public ChatOutputDto openGenericChat(Long userOneId, Long userTwoId, ChatType type) {
+        if (userOneId.equals(userTwoId)) {
+            throw new IllegalArgumentException("You cannot open a chat with yourself");
+        }
+
+        User userOne = userRepository.findById(userOneId)
+                .orElseThrow(() -> new RuntimeException("First user not found"));
+
+        User userTwo = userRepository.findById(userTwoId)
+                .orElseThrow(() -> new RuntimeException("Second user not found"));
+
+        Chat chat = chatRepository.findGenericChat(userOneId, userTwoId)
+                .orElseGet(() -> chatRepository.save(
+                        Chat.builder()
+                                .participantOne(userOne)
+                                .participantTwo(userTwo)
+                                .type(type)
+                                .createdAt(LocalDateTime.now())
+                                .active(true)
+                                .messages(new ArrayList<>())
+                                .build()
+                ));
+
+        return mapToDto(chat, userOneId);
+    }
+
+
+    private ChatOutputDto mapToDto(Chat chat, Long currentUserId) {
+        List<MessageOutputDto> messageDtos = Optional.ofNullable(chat.getMessages())
+                .orElse(Collections.emptyList())
+                .stream()
+                .sorted((m1, m2) -> m1.getCreatedAt().compareTo(m2.getCreatedAt()))
+                .map(msg -> MessageOutputDto.builder()
+                        .id(msg.getId())
+                        .senderId(msg.getSender().getId())
+                        .receiverId(msg.getReceiver().getId())
+                        .senderName(msg.getSender().getFirstName() + " " + msg.getSender().getLastName())
+                        .receiverName(msg.getReceiver().getFirstName() + " " + msg.getReceiver().getLastName())
+                        .content(msg.getContent())
+                        .createdAt(msg.getCreatedAt())
+                        .messageType(msg.getMessageType())
+                        .mediaUrl(msg.getMediaUrl())
+                        .read(msg.isRead())
+                        .readAt(msg.getReadAt())
+                        .build())
+                .toList();
+
+        User otherUser = chat.getOtherUser(
+                userRepository.findById(currentUserId)
+                        .orElseThrow(() -> new RuntimeException("Current user not found"))
+        );
+
+        MessageOutputDto lastMessage = messageDtos.isEmpty()
+                ? null
+                : messageDtos.get(messageDtos.size() - 1);
+
+        long unreadCount = messageDtos.stream()
+                .filter(message -> message.getReceiverId() != null)
+                .filter(message -> message.getReceiverId().equals(currentUserId))
+                .filter(message -> !message.isRead())
+                .count();
+
+        return ChatOutputDto.builder()
+                .chatId(chat.getId())
+                .clientId(chat.getClient() != null ? chat.getClient().getId() : null)
+                .prestataireId(chat.getPrestataire() != null ? chat.getPrestataire().getId() : null)
+                .clientFirstName(chat.getClient() != null ? chat.getClient().getFirstName() : null)
+                .clientLastName(chat.getClient() != null ? chat.getClient().getLastName() : null)
+                .prestataireFirstName(chat.getPrestataire() != null ? chat.getPrestataire().getFirstName() : null)
+                .prestataireLastName(chat.getPrestataire() != null ? chat.getPrestataire().getLastName() : null)
+                .reservationId(chat.getReservation() != null ? chat.getReservation().getId() : null)
+                .createdAt(chat.getCreatedAt())
+                .active(chat.isActive())
+                .lastMessageAt(chat.getLastMessageAt())
+                .messages(messageDtos)
+
+                // these fields must exist in ChatOutputDto
+                .displayName(otherUser.getFirstName() + " " + otherUser.getLastName())
+                .avatarLetter(otherUser.getFirstName() != null && !otherUser.getFirstName().isBlank()
+                        ? otherUser.getFirstName().substring(0, 1).toUpperCase()
+                        : "U")
+                .lastMessagePreview(lastMessage != null ? lastMessage.getContent() : "")
+                .unreadCount(unreadCount)
+                .build();
+    }
+
 
     @Transactional
     public Chat startOrGetChat(Long clientId, Long prestataireId, Long reservationId) {
@@ -158,34 +246,9 @@ public class ChatService implements IChatService {
     public List<ChatOutputDto> getChatsByUserId(Long userId) {
         List<Chat> chats = chatRepository.findActivechatsByUserId(userId);
 
-        return chats.stream().map(chat -> {
-            List<MessageOutputDto> messageDtos = Optional.ofNullable(chat.getMessages())
-                    .orElse(Collections.emptyList())
-                    .stream()
-                    .sorted((m1, m2) -> m1.getCreatedAt().compareTo(m2.getCreatedAt()))
-                    .map(msg -> MessageOutputDto.builder()
-                            .id(msg.getId())
-                            .senderName(msg.getSender().getFirstName())
-                            .content(msg.getContent())
-                            .createdAt(msg.getCreatedAt())
-                            .build())
-                    .collect(Collectors.toList());
-
-            return ChatOutputDto.builder()
-                    .chatId(chat.getId())
-                    .clientId(chat.getClient().getId())
-                    .prestataireId(chat.getPrestataire().getId())
-                    .clientFirstName(chat.getClient().getFirstName())
-                    .clientLastName(chat.getClient().getLastName())
-                    .prestataireFirstName(chat.getPrestataire().getFirstName())
-                    .prestataireLastName(chat.getPrestataire().getLastName())
-                    .reservationId(chat.getReservation() != null ? chat.getReservation().getId() : null)
-                    .createdAt(chat.getCreatedAt())
-                    .active(chat.isActive())
-                    .lastMessageAt(chat.getLastMessageAt())
-                    .messages(messageDtos)
-                    .build();
-        }).collect(Collectors.toList());
+        return chats.stream()
+                .map(chat -> mapToDto(chat, userId))
+                .collect(Collectors.toList());
     }
     @Override
     @Transactional
